@@ -15,6 +15,7 @@ import { day, priceFacts, money } from "@/lib/model";
 import { PageHeader, GlassCard, EmptyState } from "./ui";
 import { GenericRow, PriceCard } from "./rows";
 import { ExpenseSummary } from "./dashboard/spending";
+import { ScheduleStatus } from "./price-watch/check-status";
 export function Collection({
   kind,
   open,
@@ -26,7 +27,10 @@ export function Collection({
   add: (k: Kind) => void;
   back?: () => void;
 }) {
-  const { entries, settings, refresh } = useStore();
+  const { entries, settings, refresh, pending } = useStore();
+  const [checkResults, setCheckResults] = useState<
+    { id: string; title: string; status: string; message?: string }[]
+  >([]);
   const [filter, setFilter] = useState("All"),
     [sort, setSort] = useState("Recently added"),
     [query, setQuery] = useState(""),
@@ -115,16 +119,29 @@ export function Collection({
   async function check() {
     setChecking(true);
     setMessage("");
+    setCheckResults([]);
     try {
-      const r = await fetch("/api/products/check-price", { method: "POST" }),
+      if (!navigator.onLine)
+        throw new Error("Connect to the internet to check stores.");
+      const r = await fetch("/api/products/check-price", {
+          method: "POST",
+          signal: AbortSignal.timeout(60000),
+        }),
         d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setMessage(
-        `${d.checked} checked${d.failed ? ` · ${d.failed} stores need a manual update` : ""}. Automatic checks run at most twice a day.`,
+        `${d.checked} checked · ${d.failed} need attention${d.skipped ? ` · ${d.skipped} checked recently` : ""}.${d.limited ? " More products remain. Check again to continue." : ""}`,
       );
+      setCheckResults(d.results || []);
       await refresh();
     } catch (e) {
-      setMessage((e as Error).message);
+      setMessage(
+        e instanceof Error &&
+          e.name !== "TypeError" &&
+          e.name !== "TimeoutError"
+          ? e.message
+          : "The connection timed out. Your saved prices are unchanged.",
+      );
     } finally {
       setChecking(false);
     }
@@ -211,13 +228,48 @@ export function Collection({
                 <option key={s}>{s}</option>
               ))}
             </select>
-            <button className="secondary" disabled={checking} onClick={check}>
+            <button
+              className="secondary"
+              disabled={checking || pending > 0}
+              onClick={check}
+            >
               <RefreshCw size={17} className={checking ? "spin" : ""} />
               Check prices
             </button>
           </>
         )}
       </div>
+      {kind === "products" && (
+        <>
+          <ScheduleStatus />
+          {pending > 0 && (
+            <p className="hint">
+              Waiting for changes to sync before checking prices.
+            </p>
+          )}
+          {checkResults.some((r) => r.status === "failed") && (
+            <details className="history-table" open>
+              <summary>Products that need attention</summary>
+              {checkResults
+                .filter((r) => r.status === "failed")
+                .map((r) => (
+                  <div key={r.id}>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        const e = entries.find((e) => e.id === r.id);
+                        if (e) open(e);
+                      }}
+                    >
+                      {r.title}
+                    </button>
+                    <p className="hint">{r.message}</p>
+                  </div>
+                ))}
+            </details>
+          )}
+        </>
+      )}
       <div className="filter-row">
         {filters.map((f) => (
           <button

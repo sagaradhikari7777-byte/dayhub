@@ -23,6 +23,8 @@ import {
 } from "@/lib/model";
 import { PageHeader, GlassCard, Confirm, Sheet, SkeletonCard } from "./ui";
 import { ProductImage } from "./rows";
+import { ProductCheckStatus } from "./price-watch/check-status";
+import { StoreComparison } from "./price-watch/store-comparison";
 const History = dynamic(() => import("./price-watch/history"), {
   loading: () => <SkeletonCard />,
 });
@@ -181,12 +183,8 @@ export function Detail({
               by waiting.
             </div>
           )}
-          <p className="hint">
-            Last automatic check:{" "}
-            {e.lastChecked
-              ? new Date(e.lastChecked).toLocaleString()
-              : "Not checked yet. Add a store URL for automatic checks."}
-          </p>
+          <ProductCheckStatus key={e.id} entry={e} />
+          <StoreComparison key={`compare-${e.id}`} product={e} edit={edit} />
         </>
       ) : e.amount !== undefined ? (
         <GlassCard className="amount-card">

@@ -2624,3 +2624,78 @@ s {
 .global-search {
   background: var(--input);
 }
+.store-comparison {
+  margin-top: 18px;
+}
+.store-offers {
+  display: grid;
+  gap: 10px;
+  margin-block: 14px;
+}
+.store-offer {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  min-width: 0;
+}
+.store-offer-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.store-offer-heading > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.store-offer-heading small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.store-offer-price {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  flex-shrink: 0;
+}
+.store-offer-price > strong {
+  font-size: 1.2rem;
+}
+.store-offer .button-row {
+  margin-bottom: 0;
+}
+.comparison-discovery {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 18px;
+}
+.comparison-discovery h3 {
+  font-size: 1rem;
+}
+.comparison-discovery .store-offer {
+  margin-top: 10px;
+}
+.editor label.comparison-confirm {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.5;
+}
+.editor .comparison-confirm input {
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+@media (max-width: 380px) {
+  .store-offer-heading {
+    flex-wrap: wrap;
+  }
+  .store-offer-price {
+    justify-items: start;
+  }
+}

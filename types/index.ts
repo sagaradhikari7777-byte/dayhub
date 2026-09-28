@@ -53,6 +53,12 @@ export type Entry = {
   purchasePrice?: number;
   purchasedAt?: string;
   lastChecked?: string;
+  lastCheckAttempt?: string;
+  checkStatus?: "success" | "failed";
+  checkError?: string;
+  checkCode?: string;
+  priceSource?: string;
+  comparisonGroupId?: string;
   read?: boolean;
   linkKind?: Kind;
   linkId?: string;

@@ -54,7 +54,7 @@ The PostgreSQL deployment path requires `DATABASE_URL` and `SESSION_SECRET`; the
 
 Generate VAPID keys with `npx web-push generate-vapid-keys`, then set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and a real `VAPID_SUBJECT` contact. Enable push in More → Notifications on each supported device. iPhone requires an installed Home Screen app and user permission. In-app alerts work without VAPID keys.
 
-The included daily cron checks prices at 21:00 UTC, protected by `CRON_SECRET`. Each run checks at most 30 eligible products, observes a 12-hour per-product interval and a time budget. Larger deployments need a durable job queue and resumable batches. Daily cron is not an exact-time reminder service. Due reminders are generated when the app is active; push dispatch sends persisted notifications after mutations and during the cron run.
+The included daily cron checks prices at 21:00 UTC, protected by `CRON_SECRET`. Each run checks at most 20 eligible products, observes a 12-hour per-product interval and a time budget. Larger deployments need a durable job queue and resumable batches. Daily cron is not an exact-time reminder service. Due reminders are generated when the app is active; push dispatch sends persisted notifications after mutations and during the cron run.
 
 ## What works
 
@@ -75,9 +75,9 @@ The SQLite/PostgreSQL path uses dedicated tables with owner IDs, versions and va
 
 ## Price and weather services
 
-Product fetching happens only on the server. URLs must use HTTPS. The fetcher validates DNS results, pins public addresses, revalidates redirects and limits response size/time. The initial parser reads Product/Offer JSON-LD. Known retailer mappings cover Amazon AU, The Iconic, JB Hi-Fi and Officeworks; they currently share the generic parser, not custom retailer APIs. Stores that require JavaScript, block requests or omit structured offers require manual price entry. Currency mismatches are rejected during checks. Confirm final prices at the store.
+Product fetching happens only on the server. URLs must use HTTPS. The fetcher validates DNS results, pins public addresses, revalidates redirects and limits response size/time. Extraction supports nested Product/Offer JSON-LD, currency-qualified product metadata, and embedded Shopify variant data. Selected variants are matched and ambiguous price ranges are refused. Redirected product links and protocol-relative images are supported. Known retailer names cover Amazon AU, The Iconic, JB Hi-Fi and Officeworks; retailer naming is not a guarantee of live coverage. Stores that require inaccessible JavaScript data, deny requests or omit readable offers still require manual entry. Each product records failed checks separately from its last successful price; failed checks do not generate price history or alerts. Manual checks have a one-minute cooldown, while scheduled attempts use twelve hours. Currency mismatches are rejected during checks. Confirm final prices at the store.
 
-Weather uses Open-Meteo with manual city search or optional browser location. Weather and retailer network calls may fail independently of the app; both have friendly fallbacks. No live retailer, weather or push success was verified in the restricted build environment.
+Weather uses Open-Meteo with manual city search or optional browser location. Weather and retailer network calls may fail independently of the app; both have friendly fallbacks. Live JB Hi-Fi lookups succeeded for Sony WH-1000XM6 Silver and AirPods Pro 3 on 28 September 2026. The Iconic denied the deployment request; Officeworks did not expose a price readable by the previous parser. Coverage can change. Live weather and push delivery remain unverified.
 
 ## Structure
 
@@ -100,3 +100,11 @@ Weather uses Open-Meteo with manual city search or optional browser location. We
 React renders user text safely; external links are validated. No service-role or API secrets are sent to the client. Anonymous access is suitable for this personal-app starting point; a public multiuser service should add recoverable authentication, per-user quotas and operational monitoring before opening unrestricted registration.
 
 Google/Apple Calendar, mail scanning, banking, OCR, Siri, native iOS widgets and Live Activities are extension points, not implemented integrations. The briefing is deliberately rule-based and needs no AI API.
+
+## Store comparisons and optional discovery
+
+Open a tracked product and use **Prices across stores → Add store**. Paste another retailer URL or link an existing tracked item, confirm the same model/size/colour/condition, then save. Listings share a comparison group but retain their own prices, histories and alerts. They are sorted by price with out-of-stock listings last; “Lowest listed” only refers to linked listings, excludes shipping, and does not imply the lowest price on the entire market. Manually entered or failed-check prices are labelled. Unlinking retains the product in Price Watch. Refresh stores checks the group using the same protected, owner-scoped pipeline.
+
+Automatic discovery is an optional **SerpApi Google Shopping** integration. Set `SERPAPI_API_KEY` in Vercel Production and redeploy; the existing Upstash integration is also required for caching and an atomic deployment-wide search budget. `COMPARISON_DAILY_LIMIT` defaults to 10 uncached provider requests per UTC day (clamped to 1–100). Query results are cached for six hours. Review the provider account's quota and charges before enabling; DayHub does not create an account or purchase a plan. No discovery provider credentials are bundled. With no provider, linked comparisons and an external Google Shopping search remain available.
+
+Discovery currently searches Australia/AUD and displays **possible matches**, not guaranteed identical products or directly verified live store prices. Results can include Google product comparison links. Review the variant, stock, delivery and condition before adding a retailer's direct product URL to tracking. An API key has not been available for a real provider end-to-end test; provider response normalization is covered by fixtures. No promise of all-retailer coverage is made.

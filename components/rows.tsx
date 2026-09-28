@@ -214,6 +214,11 @@ export function PriceCard({
                 ? "✓ Target reached"
                 : `Target ${money(e.targetPrice, settings.currency)}`}
             {e.availability === "Out of stock" ? " · Out of stock" : ""}
+            {e.checkStatus === "failed"
+              ? " · Check needs attention"
+              : !e.lastChecked
+                ? " · Manual price"
+                : ""}
           </span>
         )}
       </span>

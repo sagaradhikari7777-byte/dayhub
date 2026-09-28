@@ -83,7 +83,20 @@ export function Editor({
     [busy, setBusy] = useState(false),
     [looking, setLooking] = useState(false);
   const put = (key: string, value: unknown) =>
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => ({
+      ...f,
+      [key]: value,
+      ...(kind === "products" && ["price", "url"].includes(key)
+        ? {
+            lastChecked: undefined,
+            lastCheckAttempt: undefined,
+            checkStatus: undefined,
+            checkError: undefined,
+            checkCode: undefined,
+            priceSource: "Manual entry",
+          }
+        : {}),
+    }));
   const input = (
     key: keyof Entry,
     label: string,
@@ -192,7 +205,13 @@ export function Editor({
         price: p.price,
         image: p.image,
         availability: p.availability,
-        lastChecked: new Date().toISOString(),
+        url: p.url || f.url,
+        lastChecked: p.checkedAt || new Date().toISOString(),
+        lastCheckAttempt: p.checkedAt || new Date().toISOString(),
+        checkStatus: "success",
+        checkError: "",
+        checkCode: "",
+        priceSource: p.source || "Store page",
       }));
     } catch (e) {
       setError((e as Error).message);

@@ -30,7 +30,10 @@ function publicAddress(ip: string) {
     )
   );
 }
-export async function safeFetch(url: string, redirects = 0): Promise<string> {
+export async function safeFetchDocument(
+  url: string,
+  redirects = 0,
+): Promise<{ html: string; url: string }> {
   const u = new URL(url);
   if (
     u.protocol !== "https:" ||
@@ -66,10 +69,10 @@ export async function safeFetch(url: string, redirects = 0): Promise<string> {
           res.resume();
           if (redirects >= 3)
             return reject(new Error("Too many store redirects."));
-          safeFetch(new URL(res.headers.location, u).href, redirects + 1).then(
-            resolve,
-            reject,
-          );
+          safeFetchDocument(
+            new URL(res.headers.location, u).href,
+            redirects + 1,
+          ).then(resolve, reject);
           return;
         }
         if (res.statusCode !== 200) {
@@ -86,12 +89,17 @@ export async function safeFetch(url: string, redirects = 0): Promise<string> {
         const chunks: Buffer[] = [];
         res.on("data", (c) => {
           size += c.length;
-          if (size > 2_000_000) {
+          if (size > 6_000_000) {
             req.destroy();
             reject(new Error("This page is too large to analyse."));
           } else chunks.push(c);
         });
-        res.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+        res.on("end", () =>
+          resolve({
+            html: Buffer.concat(chunks).toString("utf8"),
+            url: u.href,
+          }),
+        );
         res.on("error", reject);
       },
     );
@@ -105,4 +113,7 @@ export async function safeFetch(url: string, redirects = 0): Promise<string> {
     );
     req.on("error", reject);
   });
+}
+export async function safeFetch(url: string): Promise<string> {
+  return (await safeFetchDocument(url)).html;
 }

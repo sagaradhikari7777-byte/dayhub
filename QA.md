@@ -51,3 +51,11 @@ No live Vercel deployment, hosted PostgreSQL transaction, physical iPhone instal
 ## Deployment follow-up
 
 The user deployed the original ZIP with Vercel Drop at `https://dayhub-wine.vercel.app`. Its `/api/data` returned HTTP 503 before storage was connected. Earlier Together configuration was identified as Upstash Redis `together-db`; this update adds compatibility with that provider. The Vercel connector returns HTTP 403 for team `together20`, so no live credentials, database connection or deployment changes were made by the assistant. The updated ZIP must be deployed and connected before Upstash end-to-end persistence can be marked verified.
+
+
+## Price comparison update — 29 September 2026
+
+- Production build and 29 automated tests passed before deployment.
+- Added nested structured offers, metadata and Shopify variant parsing; missing currency, ambiguous variants, invalid prices and unrelated recommendations are rejected.
+- Added store comparison groups, linked offer ordering, URL deduplication and persistent check failure metadata. Regression tests confirm failures retain prices/history and do not generate price-drop alerts.
+- Optional SerpApi discovery uses server-only credentials, six-hour shared caching and an atomic Upstash daily request budget. Live provider requests remain unverified because no provider key is configured.
