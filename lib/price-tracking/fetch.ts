@@ -1,6 +1,16 @@
 import { lookup } from "node:dns/promises";
 import https from "node:https";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
+import type { LookupAddress } from "node:dns";
+
+// Node's connection family selection requests an array with `all: true`.
+// Both callback shapes must retain the address already checked for SSRF.
+export function pinnedLookup(address: LookupAddress): LookupFunction {
+  return (_hostname, options, callback) => {
+    if (options.all) callback(null, [address]);
+    else callback(null, address.address, address.family);
+  };
+}
 function publicAddress(ip: string) {
   if (isIP(ip) === 6)
     return !/^(::|fc|fd|fe80|ff|2001:db8)/i.test(ip) && !ip.includes(":ffff:");
@@ -43,11 +53,7 @@ export async function safeFetch(url: string, redirects = 0): Promise<string> {
           Accept: "text/html,application/xhtml+xml",
           "Accept-Encoding": "identity",
         },
-        lookup: ((
-          _h: unknown,
-          _o: unknown,
-          cb: (e: null, a: string, f: number) => void,
-        ) => cb(null, ip.address, ip.family)) as never,
+        lookup: pinnedLookup(ip),
       },
       (res) => {
         if (
