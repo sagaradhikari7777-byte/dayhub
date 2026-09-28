@@ -305,6 +305,9 @@ function AppContent() {
           key={editor.entry?.id || editor.kind}
           kind={editor.kind}
           entry={editor.entry}
+          onSaved={(entry) => {
+            if (entry.kind === "products") navigate(`detail/${entry.id}`);
+          }}
           onClose={() => setEditor(null)}
         />
       )}{" "}

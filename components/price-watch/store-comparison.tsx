@@ -1,17 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, ExternalLink, Search, RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw, Search } from "lucide-react";
 import type { Entry } from "@/types";
-import type { StoreSuggestion } from "@/lib/price-tracking/discovery";
-import {
-  comparisonGroup,
-  comparisonListings,
-} from "@/lib/price-tracking/comparison";
-import { money, uid } from "@/lib/model";
+import type {
+  DiscoveryResult,
+  StoreSuggestion,
+} from "@/lib/price-tracking/discovery";
 import { useStore } from "@/lib/store";
-import { GlassCard } from "../ui";
-import { AddStore } from "./add-store";
+import { money } from "@/lib/model";
+import { GlassCard, SkeletonCard } from "../ui";
+import { SavedStores } from "./saved-stores";
 
+type SearchState = {
+  key: string;
+  status: "loading" | "ready" | "setup" | "error";
+  data?: DiscoveryResult;
+  message?: string;
+};
 export function StoreComparison({
   product,
   edit,
@@ -19,256 +24,208 @@ export function StoreComparison({
   product: Entry;
   edit: (entry: Entry) => void;
 }) {
-  const { entries, settings, save, refresh, pending } = useStore();
-  const [adding, setAdding] = useState(false),
-    [busy, setBusy] = useState(false),
-    [message, setMessage] = useState(""),
-    [configured, setConfigured] = useState<boolean | null>(null);
-  const [suggestions, setSuggestions] = useState<StoreSuggestion[]>([]),
-    [searchedAt, setSearchedAt] = useState("");
-  const listings = comparisonListings(product, entries);
-  const available = listings.filter(
-    (e) => e.availability !== "Out of stock" && e.price !== undefined,
-  );
-  const lowest = available[0]?.price;
+  const { pending, settings } = useStore();
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<SearchState>({
+    key: "",
+    status: "loading",
+  });
+  const key = `${product.id}:${product.title}:${settings.currency}`;
+  const canSearch = pending === 0;
   useEffect(() => {
+    if (!canSearch) return;
     const abort = new AbortController();
-    fetch("/api/products/compare", { signal: abort.signal, cache: "no-store" })
-      .then(async (r) => {
-        if (r.ok) setConfigured(Boolean((await r.json()).configured));
-      })
-      .catch(() => {});
+    const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(60000)]);
+    setState((previous) => ({
+      key,
+      status: "loading",
+      data: previous.key === key ? previous.data : undefined,
+    }));
+    async function run() {
+      try {
+        if (settings.currency !== "AUD") {
+          setState({
+            key,
+            status: "error",
+            message:
+              "Automatic comparison currently supports Australian prices in AUD.",
+          });
+          return;
+        }
+        const config = await fetch("/api/products/compare", {
+          signal,
+          cache: "no-store",
+        });
+        if (!config.ok)
+          throw new Error("Comparison service could not be reached.");
+        if (!(await config.json()).configured) {
+          setState({ key, status: "setup" });
+          return;
+        }
+        const response = await fetch("/api/products/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId: product.id }),
+          signal,
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(
+            data.error || "Comparison is temporarily unavailable.",
+          );
+        if (!abort.signal.aborted) setState({ key, status: "ready", data });
+      } catch (error) {
+        if (abort.signal.aborted) return;
+        setState((previous) => ({
+          key,
+          status: "error",
+          data: previous.key === key ? previous.data : undefined,
+          message:
+            error instanceof Error &&
+            !["TypeError", "TimeoutError", "SyntaxError"].includes(error.name)
+              ? error.message
+              : "Could not load store prices. Your saved product is safe. Try again when connected.",
+        }));
+      }
+    }
+    void run();
     return () => abort.abort();
-  }, []);
-  async function search() {
-    setBusy(true);
-    setMessage("");
-    try {
-      const r = await fetch("/api/products/compare", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: product.id }),
-        signal: AbortSignal.timeout(45000),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error);
-      setSuggestions(data.suggestions || []);
-      setSearchedAt(data.searchedAt);
-      if (!data.suggestions?.length)
-        setMessage(
-          "No store matches found for this product. You can add a specific store link.",
-        );
-    } catch (e) {
-      setMessage(
-        e instanceof Error && !["TypeError", "TimeoutError"].includes(e.name)
-          ? e.message
-          : "Store search could not connect. Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function checkAll() {
-    setBusy(true);
-    setMessage("");
-    try {
-      const r = await fetch("/api/products/check-price", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupId: comparisonGroup(product) }),
-        signal: AbortSignal.timeout(60000),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error);
-      setMessage(
-        `${data.checked} store prices checked · ${data.failed} need attention · ${data.skipped} checked recently.${data.limited ? " Check again to continue with remaining stores." : ""}`,
-      );
-      await refresh();
-    } catch {
-      setMessage(
-        "The comparison could not be refreshed. Your saved prices have been kept.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function unlink(entry: Entry) {
-    setBusy(true);
-    setMessage("");
-    try {
-      await save({ ...entry, comparisonGroupId: uid() });
-      setMessage(
-        "Removed from this comparison. The store listing is still in Price Watch.",
-      );
-    } catch {
-      setMessage("Could not remove this listing. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <GlassCard className="store-comparison">
-      <div className="section-title">
-        <div>
-          <span className="eyebrow">SHOP AROUND</span>
-          <h2>Prices across stores</h2>
+  }, [key, product.id, settings.currency, canSearch, attempt]);
+  const current =
+    state.key === key ? state : { key, status: "loading" as const };
+  const offers = current.data?.suggestions || [];
+  const likely = offers.filter((s) => s.match === "likely");
+  const possible = offers.filter((s) => s.match !== "likely");
+  const lowest = likely.find((s) => s.availability !== "Out of stock");
+  function offerRow(offer: StoreSuggestion, best = false) {
+    return (
+      <article className="store-offer" key={`${offer.retailer}:${offer.url}`}>
+        <div className="store-offer-heading">
+          <div>
+            <strong>{offer.retailer}</strong>
+            <small>{offer.title}</small>
+          </div>
+          <div className="store-offer-price">
+            <strong>{money(offer.price, "AUD")}</strong>
+            {best && <span className="badge teal">Lowest found</span>}
+          </div>
         </div>
-        <span className="badge subtle">
-          {listings.length} {listings.length === 1 ? "store" : "stores"}
-        </span>
-      </div>
-      <p className="hint">
-        Same-product listings you have linked. Prices exclude delivery and
-        checkout-only discounts.
-      </p>
-      <div className="store-offers">
-        {listings.map((e) => (
-          <article className="store-offer" key={e.id}>
-            <div className="store-offer-heading">
-              <div>
-                <strong>{e.retailer || "Store"}</strong>
-                <small>{e.title}</small>
-              </div>
-              <div className="store-offer-price">
-                <strong>{money(e.price, settings.currency)}</strong>
-                {listings.length > 1 &&
-                  e.price === lowest &&
-                  e.availability !== "Out of stock" && (
-                    <span className="badge teal">Lowest listed</span>
-                  )}
-              </div>
-            </div>
-            <p className="hint">
-              {e.availability || "Stock unknown"} ·{" "}
-              {e.lastChecked
-                ? `Checked ${new Date(e.lastChecked).toLocaleString()}`
-                : "Manually entered · not verified"}
-              {e.status === "Stopped" ? " · Tracking paused" : ""}
-            </p>
-            {e.checkStatus === "failed" && (
-              <p className="hint">
-                {e.checkError || "Last check failed. Saved price shown."}
-              </p>
-            )}
-            <div className="button-row">
-              {e.url && (
-                <a
-                  className="secondary"
-                  href={e.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Visit store <ExternalLink size={15} />
-                </a>
-              )}
-              <button className="text-button" onClick={() => edit(e)}>
-                Edit listing
-              </button>
-              {e.id !== product.id && e.comparisonGroupId && (
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => unlink(e)}
-                >
-                  Unlink
-                </button>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-      <div className="button-row">
-        <button
-          className="primary"
-          onClick={() => setAdding(true)}
-          disabled={busy}
-        >
-          <Plus size={17} />
-          Add store
-        </button>
-        <button
-          className="secondary"
-          disabled={busy || pending > 0}
-          onClick={checkAll}
-        >
-          <RefreshCw size={17} className={busy ? "spin" : ""} />
-          Refresh stores
-        </button>
-      </div>
-      <div className="comparison-discovery">
-        <h3>Find other stores</h3>
-        {configured ? (
-          <>
-            <p className="hint">
-              Search Australian listings. Confirm the model, size and colour
-              before adding a match.
-            </p>
-            <button
-              className="secondary"
-              disabled={busy || pending > 0}
-              onClick={search}
-            >
-              <Search size={17} />
-              Find store prices
-            </button>
-          </>
-        ) : (
-          <p className="hint">
-            Automatic discovery{" "}
-            {configured === false
-              ? "needs a search provider connection"
-              : "is being checked"}
-            . You can add store URLs to compare their prices now.
-          </p>
-        )}
+        <p className="hint">
+          {offer.availability || "Stock not confirmed"} · {offer.delivery} ·{" "}
+          {offer.condition}
+        </p>
         <a
-          className="text-button"
+          className="secondary"
+          href={offer.url}
           target="_blank"
           rel="noopener noreferrer"
-          href={`https://www.google.com/search?tbm=shop&gl=au&q=${encodeURIComponent(product.title)}`}
         >
-          Search Google Shopping <ExternalLink size={15} />
+          View offer <ExternalLink size={15} />
         </a>
-        {suggestions.length > 0 && (
+      </article>
+    );
+  }
+  return (
+    <>
+      <GlassCard className="store-comparison">
+        <div className="section-title">
+          <div>
+            <span className="eyebrow">SHOP AROUND</span>
+            <h2>Compare store prices</h2>
+          </div>
+          <Search size={20} aria-hidden="true" />
+        </div>
+        <p className="hint">
+          Add a product once. DayHub searches other Australian stores
+          automatically.
+        </p>
+        {!canSearch && (
+          <p role="status" className="info">
+            Your product is saved on this device. Comparison starts once it has
+            synced.
+          </p>
+        )}
+        {canSearch && current.status === "loading" && (
+          <div role="status" aria-label="Finding store prices">
+            <p>Finding matching products and store prices…</p>
+            <SkeletonCard />
+          </div>
+        )}
+        {current.status === "setup" && (
+          <div className="info" role="status">
+            <strong>Automatic comparison isn’t connected yet</strong>
+            <p>
+              Your product is saved. Once the comparison service is connected,
+              offers appear here automatically. You do not need to add store
+              links.
+            </p>
+          </div>
+        )}
+        {current.message && (
+          <p className="info" role="status">
+            {current.message}
+          </p>
+        )}
+        {current.data && (
           <>
             <p className="hint">
-              Possible matches · search results from{" "}
-              {new Date(searchedAt).toLocaleString()}. These prices have not
-              been verified directly with the stores.
+              {offers.length} offers found · Updated{" "}
+              {new Date(current.data.searchedAt).toLocaleString()}. Results are
+              cached for up to 6 hours.
             </p>
-            {suggestions.map((s) => (
-              <article className="store-offer" key={`${s.retailer}:${s.url}`}>
-                <div className="store-offer-heading">
-                  <div>
-                    <strong>{s.retailer}</strong>
-                    <small>{s.title}</small>
-                  </div>
-                  <strong>{money(s.price, "AUD")}</strong>
+            <p className="hint">
+              Prices from Google Shopping via SerpApi. Delivery and checkout
+              discounts are not included. Confirm the model and variant at the
+              store.
+            </p>
+            {current.data.warning && (
+              <p className="info">{current.data.warning}</p>
+            )}
+            {likely.length > 0 && (
+              <>
+                <h3>Matching product titles</h3>
+                <div className="store-offers">
+                  {likely.map((s) => offerRow(s, s === lowest))}
                 </div>
+              </>
+            )}
+            {possible.length > 0 && (
+              <details className="comparison-options">
+                <summary>Other possible matches ({possible.length})</summary>
                 <p className="hint">
-                  {s.delivery} · {s.condition}
+                  Some product details differ or are missing. These are excluded
+                  from the lowest-price comparison.
                 </p>
-                <a
-                  className="secondary"
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View offer <ExternalLink size={15} />
-                </a>
-              </article>
-            ))}
+                <div className="store-offers">
+                  {possible.map((s) => offerRow(s))}
+                </div>
+              </details>
+            )}
+            {!offers.length && (
+              <p className="info">
+                No matching offers found yet. Check that the product name
+                includes its model and size, then try again.
+              </p>
+            )}
           </>
         )}
-      </div>
-      {message && (
-        <p className="info" role="status">
-          {message}
-        </p>
-      )}
-      {adding && (
-        <AddStore product={product} onClose={() => setAdding(false)} />
-      )}
-    </GlassCard>
+        {current.status !== "loading" && (
+          <button
+            className="secondary"
+            disabled={!canSearch}
+            onClick={() => setAttempt((n) => n + 1)}
+          >
+            <RefreshCw size={17} />
+            {current.status === "setup"
+              ? "Check connection"
+              : "Refresh comparison"}
+          </button>
+        )}
+      </GlassCard>
+      <details className="comparison-options">
+        <summary>Saved listings & optional manual controls</summary>
+        <SavedStores product={product} edit={edit} />
+      </details>
+    </>
   );
 }

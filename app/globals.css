@@ -2699,3 +2699,8 @@ s {
     justify-items: start;
   }
 }
+
+.comparison-options { margin: 16px 0; }
+.comparison-options > summary { min-height: 44px; cursor: pointer; padding: 12px 4px; font-weight: 600; }
+.store-comparison h3 { margin: 16px 0 12px; }
+.store-comparison .info p { margin-bottom: 0; }

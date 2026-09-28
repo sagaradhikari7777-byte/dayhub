@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { redisCommand, redisConfigured } from "@/lib/db/redis";
 import { ProductLookupError } from "./errors";
+import { matchProduct, type Match } from "./matching";
+import { object, array, availability } from "./retailers/html";
 export type StoreSuggestion = {
   title: string;
   retailer: string;
@@ -8,6 +10,8 @@ export type StoreSuggestion = {
   url: string;
   delivery: string;
   condition: string;
+  availability?: string;
+  match?: Match;
 };
 export function discoveryConfigured() {
   return Boolean(process.env.SERPAPI_API_KEY && redisConfigured());
@@ -66,19 +70,97 @@ export function parseSuggestions(data: unknown): StoreSuggestion[] {
     .slice(0, 20);
 }
 
-export async function discoverStores(query: string) {
-  if (!discoveryConfigured())
-    throw new ProductLookupError(
-      "discovery_not_configured",
-      "Automatic store discovery needs a search provider connection. You can add store links to compare prices now.",
-    );
-  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
-  const cached = await redisCommand(["GET", cacheKey]);
-  if (typeof cached === "string")
-    return JSON.parse(cached) as {
-      suggestions: StoreSuggestion[];
-      searchedAt: string;
-    };
+export type DiscoveryResult = {
+  suggestions: StoreSuggestion[];
+  searchedAt: string;
+  warning?: string;
+};
+type Provider = (params: Record<string, string>) => Promise<unknown>;
+
+export function parseStores(data: unknown): StoreSuggestion[] {
+  const product = object(object(data).product_results);
+  return array(product.stores).flatMap((value) => {
+    const row = object(value);
+    const details = array(row.details_and_offers)
+      .filter((x) => typeof x === "string")
+      .join(" · ");
+    const offers = parseSuggestions({
+      shopping_results: [
+        {
+          ...row,
+          source: row.name,
+          title: row.title || product.title,
+          delivery: row.shipping || details || "Delivery not confirmed",
+          second_hand_condition: row.second_hand_condition,
+        },
+      ],
+    });
+    return offers.map((offer) => ({
+      ...offer,
+      availability: availability(details),
+    }));
+  });
+}
+
+// Pure provider orchestration is injectable for fixture tests. Credentials and
+// request budgeting remain exclusively in the server wrapper below.
+export async function collectStoreOffers(
+  query: string,
+  provider: Provider,
+): Promise<DiscoveryResult> {
+  const raw = await provider({
+    engine: "google_shopping",
+    q: query,
+    gl: "au",
+    hl: "en",
+  });
+  let suggestions = parseSuggestions(raw).map((s) => ({
+    ...s,
+    match: matchProduct(query, `${s.title} ${s.condition}`),
+  }));
+  const candidates = array(object(raw).shopping_results).map(object);
+  const chosen = candidates.find(
+    (row) =>
+      typeof row.title === "string" &&
+      matchProduct(query, `${row.title} ${row.second_hand_condition || ""}`) ===
+        "likely" &&
+      typeof row.immersive_product_page_token === "string",
+  );
+  let warning: string | undefined;
+  if (chosen) {
+    try {
+      const details = await provider({
+        engine: "google_immersive_product",
+        page_token: String(chosen.immersive_product_page_token),
+        more_stores: "true",
+      });
+      suggestions = [
+        ...parseStores(details).map((s) => ({
+          ...s,
+          match: matchProduct(query, `${s.title} ${s.condition}`),
+        })),
+        ...suggestions,
+      ];
+    } catch {
+      warning =
+        "Some additional stores could not be loaded. Available search results are shown.";
+    }
+  }
+  const seen = new Set<string>();
+  suggestions = suggestions
+    .filter((s) => s.match !== "different")
+    .sort((a, b) => a.price - b.price)
+    .filter((s) => {
+      const key = `${s.retailer.toLowerCase()}:${s.title.toLowerCase()}:${s.price}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 40);
+  return { suggestions, searchedAt: new Date().toISOString(), warning };
+}
+
+async function providerRequest(params: Record<string, string>) {
   const daily = Number(process.env.COMPARISON_DAILY_LIMIT || 10);
   const limit = Number.isInteger(daily)
     ? Math.max(1, Math.min(100, daily))
@@ -94,36 +176,59 @@ export async function discoverStores(query: string) {
   if (Number(accepted) !== 1)
     throw new ProductLookupError(
       "discovery_limit",
-      "Today's store-search limit has been reached. Saved store comparisons still work.",
+      "Today's store-search limit has been reached. Previously saved results are kept.",
     );
   const url = new URL("https://serpapi.com/search.json");
   url.search = new URLSearchParams({
-    engine: "google_shopping",
-    q: query,
-    gl: "au",
-    hl: "en",
+    ...params,
     api_key: process.env.SERPAPI_API_KEY!,
   }).toString();
   const response = await fetch(url, {
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(15000),
     redirect: "error",
     cache: "no-store",
   });
   if (!response.ok)
     throw new ProductLookupError(
       "discovery_unavailable",
-      "Store search is temporarily unavailable. Your saved comparisons are unchanged.",
+      "Store search is temporarily unavailable. Please try again later.",
     );
   const raw = await response.json();
   if (raw.error)
     throw new ProductLookupError(
       "discovery_unavailable",
-      "The search provider could not complete this search. Check its configuration or try again later.",
+      "The search provider could not complete this comparison.",
     );
-  const result = {
-    suggestions: parseSuggestions(raw),
-    searchedAt: new Date().toISOString(),
-  };
-  await redisCommand(["SET", cacheKey, JSON.stringify(result), "EX", 21600]);
-  return result;
+  return raw;
+}
+const inFlight = new Map<string, Promise<DiscoveryResult>>();
+export async function discoverStores(query: string): Promise<DiscoveryResult> {
+  if (!discoveryConfigured())
+    throw new ProductLookupError(
+      "discovery_not_configured",
+      "Automatic comparison is not connected yet. Your product is saved; there is no need to add other store links.",
+    );
+  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v2:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
+  const existing = inFlight.get(cacheKey);
+  if (existing) return existing;
+  const work = (async () => {
+    const cached = await redisCommand(["GET", cacheKey]);
+    if (typeof cached === "string")
+      return JSON.parse(cached) as DiscoveryResult;
+    const result = await collectStoreOffers(query, providerRequest);
+    await redisCommand([
+      "SET",
+      cacheKey,
+      JSON.stringify(result),
+      "EX",
+      result.warning ? 900 : 21600,
+    ]);
+    return result;
+  })();
+  inFlight.set(cacheKey, work);
+  try {
+    return await work;
+  } finally {
+    inFlight.delete(cacheKey);
+  }
 }

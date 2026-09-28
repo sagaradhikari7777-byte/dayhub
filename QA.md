@@ -69,3 +69,9 @@ The Vercel connector still rejects access to the team, so environment-variable c
 - Browser: product URL lookup, save, add a clearly labelled synthetic store listing, lowest-listed indicator and reload persistence passed. The sample comparison is QA data, not evidence of a second retailer offer.
 - Browser console inspection showed extension-origin metadata errors; no DayHub-origin errors were observed in the inspected log.
 - Store discovery returns a friendly not-configured response until a provider key is supplied. No broad retailer coverage claim is made.
+
+## Automatic comparison follow-up — 29 September 2026
+
+- 33 tests and production build passed. Added fixture coverage for one-query multi-store discovery, expanded sellers, price ordering, accessory/generation/size/condition exclusions, ambiguous matches and partial provider failure.
+- Product save now opens details; comparison starts automatically after sync. Manual linking is optional and collapsed.
+- SerpApi Google Shopping plus Google Immersive Product are implemented against current official documentation. A real provider end-to-end run is blocked by the missing key.

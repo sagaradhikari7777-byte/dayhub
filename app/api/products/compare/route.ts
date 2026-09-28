@@ -7,7 +7,7 @@ import {
   discoverStores,
 } from "@/lib/price-tracking/discovery";
 import { ProductLookupError } from "@/lib/price-tracking/errors";
-export const maxDuration = 40;
+export const maxDuration = 60;
 export async function GET() {
   return NextResponse.json(
     { configured: discoveryConfigured() },

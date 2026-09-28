@@ -48,10 +48,12 @@ export function Editor({
   kind,
   entry,
   onClose,
+  onSaved,
 }: {
   kind: Kind;
   entry?: Entry;
   onClose: () => void;
+  onSaved?: (entry: Entry) => void;
 }) {
   const { save, entries, settings } = useStore();
   const [form, setForm] = useState<Entry>(
@@ -175,6 +177,7 @@ export function Editor({
       }
       await save(result.data);
       onClose();
+      onSaved?.(result.data);
     } catch (e) {
       setError(
         "This could not be saved on your device. Please check available storage and try again.",
