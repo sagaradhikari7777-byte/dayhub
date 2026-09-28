@@ -46,11 +46,13 @@ The browser preview was HTTP Chromium. It is not equivalent to physical iPhone S
 6. Confirm cron authorization and actual Vercel scheduling; inspect its checked/failed/limited result.
 7. Test backup export/restore on a second device before relying on anonymous-session recovery.
 
-No live Vercel deployment, hosted PostgreSQL transaction, physical iPhone installation, background push delivery or successful external retailer/weather request was verified in this environment.
+At the original local validation stage, live deployment and external services had not yet been verified. See the deployment follow-up below for current results. Physical iPhone installation and background push delivery remain unverified.
 
 ## Deployment follow-up
 
-The user deployed the original ZIP with Vercel Drop at `https://dayhub-wine.vercel.app`. Its `/api/data` returned HTTP 503 before storage was connected. Earlier Together configuration was identified as Upstash Redis `together-db`; this update adds compatibility with that provider. The Vercel connector returns HTTP 403 for team `together20`, so no live credentials, database connection or deployment changes were made by the assistant. The updated ZIP must be deployed and connected before Upstash end-to-end persistence can be marked verified.
+The live app at `https://dayhub-wine.vercel.app` is deployed automatically from GitHub `sagaradhikari7777-byte/dayhub` main. Vercel reported the comparison update ready at commit `9b0ac9a`. Upstash cloud storage is connected; an isolated QA session verified create/read/update/history/alerts and reset cleanup through the live API. Together's records were not touched.
+
+The Vercel connector still rejects access to the team, so environment-variable changes cannot be made through that connector. Live configuration endpoints report `configured: false` for SerpApi discovery and `scheduled: false` for background checks. Manual checks are operational.
 
 
 ## Price comparison update — 29 September 2026
@@ -59,3 +61,11 @@ The user deployed the original ZIP with Vercel Drop at `https://dayhub-wine.verc
 - Added nested structured offers, metadata and Shopify variant parsing; missing currency, ambiguous variants, invalid prices and unrelated recommendations are rejected.
 - Added store comparison groups, linked offer ordering, URL deduplication and persistent check failure metadata. Regression tests confirm failures retain prices/history and do not generate price-drop alerts.
 - Optional SerpApi discovery uses server-only credentials, six-hour shared caching and an atomic Upstash daily request budget. Live provider requests remain unverified because no provider key is configured.
+
+### Live verification of the comparison update
+
+- JB Hi-Fi AirPods Pro 3 lookup returned AUD 429, in-stock status, image and timestamp.
+- A group price check saved the retrieved price, two historical points and one price-drop notification in Upstash; a subsequent request retained both linked listings. The disposable API account was reset afterward.
+- Browser: product URL lookup, save, add a clearly labelled synthetic store listing, lowest-listed indicator and reload persistence passed. The sample comparison is QA data, not evidence of a second retailer offer.
+- Browser console inspection showed extension-origin metadata errors; no DayHub-origin errors were observed in the inspected log.
+- Store discovery returns a friendly not-configured response until a provider key is supplied. No broad retailer coverage claim is made.

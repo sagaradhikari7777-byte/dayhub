@@ -119,7 +119,9 @@ export function Detail({
               <span className={`badge ${f.target ? "teal" : "subtle"}`}>
                 {f.target
                   ? "✓ Target reached"
-                  : `Target ${money(e.targetPrice, currency)}`}
+                  : e.targetPrice !== undefined
+                    ? `Target ${money(e.targetPrice, currency)}`
+                    : "No target set"}
               </span>
             </div>
           </GlassCard>
