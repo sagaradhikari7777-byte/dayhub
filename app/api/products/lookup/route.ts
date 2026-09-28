@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { lookupProduct } from "@/lib/price-tracking";
 import { owner, sameOrigin } from "@/lib/auth";
+import { ProductLookupError } from "@/lib/price-tracking/errors";
 const limits = new Map<string, number>();
 export async function POST(req: Request) {
   try {
@@ -20,11 +21,17 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     return NextResponse.json(await lookupProduct(body.url));
-  } catch {
+  } catch (error) {
     return NextResponse.json(
       {
         error:
-          "This store could not be analysed automatically. You can still add it with a manual price.",
+          error instanceof ProductLookupError
+            ? error.message
+            : "This store could not be analysed automatically. You can still add it with a manual price.",
+        code:
+          error instanceof ProductLookupError
+            ? error.code
+            : "lookup_unavailable",
       },
       { status: 422 },
     );

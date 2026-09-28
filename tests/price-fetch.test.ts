@@ -3,6 +3,15 @@ import assert from "node:assert/strict";
 import { createServer, createConnection, type AddressInfo } from "node:net";
 import { once } from "node:events";
 import { pinnedLookup } from "../lib/price-tracking/fetch";
+import { storeResponseError } from "../lib/price-tracking/errors";
+
+test("store rejections distinguish blocked access, throttling and missing pages", () => {
+  assert.equal(storeResponseError(403).code, "store_access_denied");
+  assert.equal(storeResponseError(401).code, "store_access_denied");
+  assert.equal(storeResponseError(429).code, "store_rate_limited");
+  assert.equal(storeResponseError(404).code, "product_not_found");
+  assert.equal(storeResponseError(503).code, "store_unavailable");
+});
 
 test("pinned DNS supports both Node callback shapes without resolving again", () => {
   const address = { address: "93.184.216.34", family: 4 };

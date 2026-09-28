@@ -2,6 +2,7 @@ import { safeFetch } from "./fetch";
 import { parseProduct } from "./retailers/generic";
 import { allEntries, mutate, owners } from "@/lib/db";
 import { uid } from "@/lib/model";
+import { ProductLookupError } from "./errors";
 // Retailer-specific adapters can replace the standards-based JSON-LD parser without changing callers.
 const retailers = [
   { hosts: ["amazon.com.au"], name: "Amazon" },
@@ -10,10 +11,20 @@ const retailers = [
   { hosts: ["officeworks.com.au"], name: "Officeworks" },
 ];
 export async function lookupProduct(url: string) {
-  const html = await safeFetch(url);
+  let html: string;
+  try {
+    html = await safeFetch(url);
+  } catch (error) {
+    if (error instanceof ProductLookupError) throw error;
+    throw new ProductLookupError(
+      "store_connection_failed",
+      "DayHub could not connect to this store. Check the product link or enter the price manually.",
+    );
+  }
   const result = parseProduct(html, url);
   if (!result)
-    throw new Error(
+    throw new ProductLookupError(
+      "price_not_readable",
       "This store does not expose a readable product price. Please enter it manually.",
     );
   const hostname = new URL(url).hostname.replace(/^www\./, "");

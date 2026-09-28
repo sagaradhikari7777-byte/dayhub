@@ -2,6 +2,7 @@ import { lookup } from "node:dns/promises";
 import https from "node:https";
 import { isIP, type LookupFunction } from "node:net";
 import type { LookupAddress } from "node:dns";
+import { ProductLookupError, storeResponseError } from "./errors";
 
 // Node's connection family selection requests an array with `all: true`.
 // Both callback shapes must retain the address already checked for SSRF.
@@ -73,11 +74,7 @@ export async function safeFetch(url: string, redirects = 0): Promise<string> {
         }
         if (res.statusCode !== 200) {
           res.resume();
-          reject(
-            new Error(
-              "This store could not be checked. You can enter its price manually.",
-            ),
-          );
+          reject(storeResponseError(res.statusCode || 0));
           return;
         }
         if (!/text\/html|xhtml/.test(res.headers["content-type"] || "")) {
@@ -99,7 +96,12 @@ export async function safeFetch(url: string, redirects = 0): Promise<string> {
       },
     );
     req.setTimeout(9000, () =>
-      req.destroy(new Error("Store request timed out.")),
+      req.destroy(
+        new ProductLookupError(
+          "store_timeout",
+          "This store took too long to respond. Try again later or enter the price manually.",
+        ),
+      ),
     );
     req.on("error", reject);
   });
