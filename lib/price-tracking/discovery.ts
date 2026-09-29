@@ -46,6 +46,20 @@ export function parseSuggestions(data: unknown): StoreSuggestion[] {
         return [];
       }
       if (url.protocol !== "https:" || url.username || url.password) return [];
+      // An AU search can still contain converted overseas offers. Explicit
+      // non-Australian storefronts must not enter the AUD comparison.
+      if (
+        /\.(?:nz|uk|us|ph|jp|ca|in|sg|de|fr)$/.test(url.hostname) ||
+        /^\/(?:ph|us|uk|jp|nz|ca|sg|in|de|fr)(?:\/|$)/i.test(url.pathname)
+      )
+        return [];
+      const region = url.searchParams.get("country");
+      const currency = url.searchParams.get("currency");
+      if (
+        (region && region.toUpperCase() !== "AU") ||
+        (currency && currency.toUpperCase() !== "AUD")
+      )
+        return [];
       const key = `${r.source}:${url.href}`;
       if (seen.has(key)) return [];
       seen.add(key);
@@ -114,9 +128,14 @@ export async function collectStoreOffers(
     gl: "au",
     hl: "en",
   });
-  let suggestions = parseSuggestions(raw).map((s) => ({
+  let suggestions: StoreSuggestion[] = parseSuggestions(raw).map((s) => ({
     ...s,
-    match: matchProduct(query, `${s.title} ${s.condition}`),
+    // Search hits alone can be unrelated accessories. Only expanded seller
+    // listings can qualify for the main lowest-price comparison.
+    match:
+      matchProduct(query, `${s.title} ${s.condition}`) === "different"
+        ? "different"
+        : "possible",
   }));
   const candidates = array(object(raw).shopping_results).map(object);
   const chosen = candidates.find(
@@ -203,12 +222,13 @@ async function providerRequest(params: Record<string, string>) {
 }
 const inFlight = new Map<string, Promise<DiscoveryResult>>();
 export async function discoverStores(query: string): Promise<DiscoveryResult> {
+  query = query.normalize("NFKC").replace(/\s+/g, " ").trim();
   if (!discoveryConfigured())
     throw new ProductLookupError(
       "discovery_not_configured",
       "Automatic comparison is not connected yet. Your product is saved; there is no need to add other store links.",
     );
-  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v2:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
+  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v3:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
   const existing = inFlight.get(cacheKey);
   if (existing) return existing;
   const work = (async () => {

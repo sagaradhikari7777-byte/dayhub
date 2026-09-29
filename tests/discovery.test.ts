@@ -1,10 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { matchProduct } from "../lib/price-tracking/matching";
-import { collectStoreOffers } from "../lib/price-tracking/discovery";
+import {
+  collectStoreOffers,
+  parseStores,
+} from "../lib/price-tracking/discovery";
 
 test("matching excludes accessories, wrong generation, perfume size and condition", () => {
-  assert.equal(matchProduct("Apple AirPods 3", "Apple AirPods Pro 3"), "different");
+  assert.equal(
+    matchProduct("Apple AirPods 3", "Apple AirPods Pro 3"),
+    "different",
+  );
   assert.equal(
     matchProduct("Apple AirPods Pro 3", "Apple AirPods Pro 3 White"),
     "likely",
@@ -120,4 +126,51 @@ test("ambiguous matches do not trigger seller expansion", async () => {
     };
   });
   assert.equal(calls, 1);
+});
+
+test("live-result regressions: foreign storefronts and accessories cannot win comparison", async () => {
+  assert.equal(
+    matchProduct(query, "Apple AirPods Pro 3 ümbris Lamano Panther"),
+    "different",
+  );
+  assert.equal(
+    matchProduct(query, "さかべ 美品 Apple AirPods Pro 3"),
+    "possible",
+  );
+  const store = {
+    title: query,
+    name: "Apple",
+    price: "$376.40",
+    extracted_price: 376.4,
+  };
+  assert.equal(
+    parseStores({
+      product_results: {
+        stores: [
+          {
+            ...store,
+            link: "https://www.apple.com/ph/shop/go/product/MFHP4ZA/A",
+          },
+          { ...store, link: "https://store.example/item?currency=USD" },
+        ],
+      },
+    }).length,
+    0,
+  );
+  const result = await collectStoreOffers(query, async (params) =>
+    params.engine === "google_shopping"
+      ? {
+          shopping_results: [
+            {
+              title: query,
+              source: "Unverified search hit",
+              price: "$22",
+              extracted_price: 22,
+              product_link: "https://www.google.com/search?q=airpods",
+            },
+          ],
+        }
+      : {},
+  );
+  assert.equal(result.suggestions[0].match, "possible");
 });

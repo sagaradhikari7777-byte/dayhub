@@ -5,6 +5,7 @@ const normalize = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/(\d)\s+(ml|gb|tb|mm|cm|inch)\b/g, "$1$2")
     .replace(/([a-z]+)-(\d)/g, "$1$2")
     .replace(/[^a-z0-9.]+/g, " ")
@@ -13,7 +14,7 @@ const colours =
   /\b(black|white|silver|blue|red|green|pink|gold|purple|brown|beige)\b/g;
 const conditions = /\b(used|refurbished|renewed|preowned|pre owned|open box)\b/;
 const accessories =
-  /\b(case|cover|protector|replacement|ear tips|earpads|strap|adapter|cable|sample|tester|decant|bundle)\b/;
+  /\b(case|cover|umbris|coque|housse|funda|etui|protector|replacement|ear tips|earpads|strap|adapter|cable|sample|tester|decant|bundle)\b/;
 export function matchProduct(query: string, title: string): Match {
   const q = normalize(query),
     t = normalize(title);
@@ -22,9 +23,13 @@ export function matchProduct(query: string, title: string): Match {
   const accessory = t.match(accessories)?.[0];
   if (accessory && !q.includes(accessory)) return "different";
   const qualifiers = /\b(pro|max|plus|ultra|mini|lite)\b/g;
-  const qQualifiers = [...q.matchAll(qualifiers)].map(x => x[0]);
-  const tQualifiers = [...t.matchAll(qualifiers)].map(x => x[0]);
-  if (qQualifiers.some(x => !tQualifiers.includes(x)) || tQualifiers.some(x => !qQualifiers.includes(x))) return "different";
+  const qQualifiers = [...q.matchAll(qualifiers)].map((x) => x[0]);
+  const tQualifiers = [...t.matchAll(qualifiers)].map((x) => x[0]);
+  if (
+    qQualifiers.some((x) => !tQualifiers.includes(x)) ||
+    tQualifiers.some((x) => !qQualifiers.includes(x))
+  )
+    return "different";
   const qt = q.split(/\s+/),
     tt = new Set(t.split(/\s+/));
   const identifiers = qt.filter((x) => /\d/.test(x));
@@ -40,6 +45,10 @@ export function matchProduct(query: string, title: string): Match {
   const overlap = words.filter((x) => tt.has(x)).length / words.length;
   // Require all words for an automatic likely match. Missing colour/variant
   // attributes stay possible, even when a model identifier agrees.
+  // Do not discard unknown scripts and then treat the remaining model words
+  // as proof of a match (foreign-language titles may describe an accessory).
+  if (/[^\p{Script=Latin}\p{N}\p{P}\p{Z}\p{S}\s]/u.test(title))
+    return "possible";
   if (overlap === 1) return "likely";
   return overlap >= 0.55 ? "possible" : "different";
 }

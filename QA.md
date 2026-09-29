@@ -75,3 +75,9 @@ The Vercel connector still rejects access to the team, so environment-variable c
 - 33 tests and production build passed. Added fixture coverage for one-query multi-store discovery, expanded sellers, price ordering, accessory/generation/size/condition exclusions, ambiguous matches and partial provider failure.
 - Product save now opens details; comparison starts automatically after sync. Manual linking is optional and collapsed.
 - SerpApi Google Shopping plus Google Immersive Product are implemented against current official documentation. A real provider end-to-end run is blocked by the missing key.
+
+## Live provider activation — 29 September 2026
+
+- Production configuration reported enabled after redeployment; a real SerpApi request returned retailer offers from one AirPods Pro 3 product, including The Good Guys, Costco, Officeworks and others. The disposable API account was reset afterward.
+- Live results revealed a foreign-language accessory and overseas storefront. Added regression coverage and filtering: search-only hits cannot qualify for lowest-price ranking, explicit foreign country paths/currencies are rejected, and unsupported-script titles remain uncertain. Cache version changed to prevent reuse of the old matches.
+- 34 automated tests passed; final production build and deployment are checked before release.
