@@ -91,6 +91,36 @@ export type DiscoveryResult = {
   searchedAt: string;
   warning?: string;
 };
+// Reapply current identity rules even to cached offers. A matcher correction
+// must take effect immediately without spending another provider request.
+export function revalidateOffers(
+  query: string,
+  cached: DiscoveryResult,
+): DiscoveryResult {
+  return {
+    ...cached,
+    suggestions: cached.suggestions.flatMap((s) => {
+      const condition =
+        s.condition === "Condition not confirmed" ? "" : s.condition;
+      const assessment = assessProduct(query, `${s.title} ${condition}`);
+      if (assessment.match === "different") return [];
+      const match: Match =
+        s.match === "likely" && !s.titleIsFallback
+          ? assessment.match
+          : "possible";
+      return [
+        {
+          ...s,
+          match,
+          matchReason:
+            match === "likely" || assessment.match === "possible"
+              ? assessment.reason
+              : s.matchReason,
+        },
+      ];
+    }),
+  };
+}
 type Provider = (params: Record<string, string>) => Promise<unknown>;
 
 export function parseStores(data: unknown): StoreSuggestion[] {
@@ -242,7 +272,7 @@ export async function discoverStores(query: string): Promise<DiscoveryResult> {
   const work = (async () => {
     const cached = await redisCommand(["GET", cacheKey]);
     if (typeof cached === "string")
-      return JSON.parse(cached) as DiscoveryResult;
+      return revalidateOffers(query, JSON.parse(cached) as DiscoveryResult);
     const result = await collectStoreOffers(query, providerRequest);
     await redisCommand([
       "SET",

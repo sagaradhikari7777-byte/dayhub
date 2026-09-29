@@ -4,6 +4,7 @@ import { matchProduct } from "../lib/price-tracking/matching";
 import {
   collectStoreOffers,
   parseStores,
+  revalidateOffers,
 } from "../lib/price-tracking/discovery";
 
 test("matching excludes accessories, wrong generation, perfume size and condition", () => {
@@ -214,6 +215,7 @@ test("identity checks reject sibling products and conflicting variants", () => {
     ["Dyson V8", "Dyson V7 V8 Vacuum Cleaner"],
     ["Dyson V8 Absolute", "Dyson V8 Animal"],
     ["Dyson V8", "Dyson V8 Origin"],
+    ["Dyson V8", "Dyson V8 Cyclone"],
     ["Tom Ford Noir 50ml", "Tom Ford Noir Extreme 50ml"],
     ["Tom Ford Noir EDP 50ml", "Tom Ford Noir EDT 50ml"],
     ["Tom Ford Noir 35ml", "Tom Ford Noir 35ml 50ml"],
@@ -315,4 +317,31 @@ test("only accessory search hits produce an honest empty comparison", async () =
   });
   assert.equal(calls, 1);
   assert.deepEqual(result.suggestions, []);
+});
+
+test("cached offers are rechecked after matcher changes without provider calls", () => {
+  const base = {
+    retailer: "Store",
+    price: 10,
+    url: "https://shop.example/item",
+    condition: "Condition not confirmed",
+    delivery: "Unknown",
+    match: "likely" as const,
+  };
+  const result = revalidateOffers("Dyson V8", {
+    searchedAt: "2026-09-29T00:00:00Z",
+    suggestions: [
+      { ...base, title: dysonParts[0] },
+      { ...base, title: "Dyson V8 Cyclone" },
+      { ...base, title: "Dyson V8 Cordless Vacuum Cleaner", price: 399 },
+      { ...base, title: "Dyson V8 UnknownEdition" },
+    ],
+  });
+  assert.deepEqual(
+    result.suggestions.map((s) => [s.title, s.match]),
+    [
+      ["Dyson V8 Cordless Vacuum Cleaner", "likely"],
+      ["Dyson V8 UnknownEdition", "possible"],
+    ],
+  );
 });

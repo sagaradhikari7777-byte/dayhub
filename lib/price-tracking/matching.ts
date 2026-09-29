@@ -19,13 +19,13 @@ const colours =
 const conditions =
   /\b(used|refurbished|renewed|preowned|pre owned|open box|second hand)\b/;
 const qualifiers =
-  /\b(pro|max|plus|ultra|mini|lite|extreme|intense|elixir|edp|edt|parfum|absolute|animal|origin|detect|complete|advanced|slim|extra|total clean|polarised|polarized)\b/g;
+  /\b(pro|max|plus|ultra|mini|lite|extreme|intense|elixir|edp|edt|parfum|absolute|animal|origin|detect|complete|advanced|slim|extra|total clean|cyclone|polarised|polarized)\b/g;
 // Separate types: tracking a filter cannot match a dustbin or the appliance.
 const parts = [
   /\b(cases?|covers?|umbris|coque|housse|funda|etui|protector)\b/,
   /\b(filters?|hepa|post motor|pre motor)\b/,
   /\b(dustbins?|dust bins?|bin assembly|canister)\b/,
-  /\b(brush(?:es)?|brushbar|roller|motorhead|floor head|cleaner head|combination tool|crevice tool|nozzle|attachment|wand|hose)\b/,
+  /\b(brush(?:es)?|brushbar|roller|motorhead|floor head|cleaner head|combination tool|crevice tool|hair screw tool|nozzle|attachment|wand|hose)\b/,
   /\b(batter(?:y|ies)|charger|charging dock|power supply)\b/,
   /\b(ear tips|earpads|strap|adapter|cable)\b/,
   /\b(sample|tester|decant|refill)\b/,

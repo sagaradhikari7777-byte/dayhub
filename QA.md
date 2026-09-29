@@ -89,3 +89,4 @@ The Vercel connector still rejects access to the team, so environment-variable c
 - Seller rows inheriting a group title cannot win the comparison. Uncertain listings explain what is missing. Accessory-only results give an honest empty comparison.
 - Bumped comparison cache to v4 so old misclassified offers are not reused.
 - 38 tests pass, including exact screenshot titles, positive vacuum matches, perfume/phone/headphone variants, seller-expansion selection and missing seller titles. Production build and TypeScript passed locally. Title matching remains heuristic rather than a verified GTIN/SKU guarantee.
+- Production browser check returned a complete Dyson V8 offer and no screenshot accessory listings. Added Cyclone edition separation and cache-read revalidation after observing live results; 39 tests and TypeScript pass.
