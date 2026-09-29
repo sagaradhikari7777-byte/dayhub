@@ -107,13 +107,14 @@ export function StoreComparison({
           </div>
           <div className="store-offer-price">
             <strong>{money(offer.price, "AUD")}</strong>
-            {best && <span className="badge teal">Lowest found</span>}
+            {best && <span className="badge teal">Lowest matching offer</span>}
           </div>
         </div>
         <p className="hint">
           {offer.availability || "Stock not confirmed"} · {offer.delivery} ·{" "}
           {offer.condition}
         </p>
+        {offer.matchReason && <p className="hint">{offer.matchReason}</p>}
         <a
           className="secondary"
           href={offer.url}
@@ -183,7 +184,7 @@ export function StoreComparison({
             )}
             {likely.length > 0 && (
               <>
-                <h3>Matching product titles</h3>
+                <h3>Same model · title matches</h3>
                 <div className="store-offers">
                   {likely.map((s) => offerRow(s, s === lowest))}
                 </div>
@@ -191,20 +192,23 @@ export function StoreComparison({
             )}
             {possible.length > 0 && (
               <details className="comparison-options">
-                <summary>Other possible matches ({possible.length})</summary>
+                <summary>Unverified listings ({possible.length})</summary>
                 <p className="hint">
-                  Some product details differ or are missing. These are excluded
-                  from the lowest-price comparison.
+                  These listings have incomplete product details. They are not
+                  included in the price comparison. Check the model and variant
+                  before buying.
                 </p>
                 <div className="store-offers">
                   {possible.map((s) => offerRow(s))}
                 </div>
               </details>
             )}
-            {!offers.length && (
+            {!likely.length && (
               <p className="info">
-                No matching offers found yet. Check that the product name
-                includes its model and size, then try again.
+                No confident same-model comparison is available yet. DayHub
+                excludes detected accessories, replacement parts and different
+                variants. Include the model, size and colour in the product name
+                for more accurate results.
               </p>
             )}
           </>

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { redisCommand, redisConfigured } from "@/lib/db/redis";
 import { ProductLookupError } from "./errors";
-import { matchProduct, type Match } from "./matching";
+import { assessProduct, matchProduct, type Match } from "./matching";
 import { object, array, availability } from "./retailers/html";
 export type StoreSuggestion = {
   title: string;
@@ -12,6 +12,8 @@ export type StoreSuggestion = {
   condition: string;
   availability?: string;
   match?: Match;
+  matchReason?: string;
+  titleIsFallback?: boolean;
 };
 export function discoveryConfigured() {
   return Boolean(process.env.SERPAPI_API_KEY && redisConfigured());
@@ -111,6 +113,7 @@ export function parseStores(data: unknown): StoreSuggestion[] {
     });
     return offers.map((offer) => ({
       ...offer,
+      titleIsFallback: typeof row.title !== "string" || !row.title.trim(),
       availability: availability(details),
     }));
   });
@@ -128,15 +131,23 @@ export async function collectStoreOffers(
     gl: "au",
     hl: "en",
   });
-  let suggestions: StoreSuggestion[] = parseSuggestions(raw).map((s) => ({
-    ...s,
-    // Search hits alone can be unrelated accessories. Only expanded seller
-    // listings can qualify for the main lowest-price comparison.
-    match:
-      matchProduct(query, `${s.title} ${s.condition}`) === "different"
-        ? "different"
-        : "possible",
-  }));
+  const classify = (s: StoreSuggestion, expanded: boolean): StoreSuggestion => {
+    const condition =
+      s.condition === "Condition not confirmed" ? "" : s.condition;
+    const assessment = assessProduct(query, `${s.title} ${condition}`);
+    if (assessment.match === "different") return { ...s, match: "different" };
+    const confirmedTitle = expanded && !s.titleIsFallback;
+    return {
+      ...s,
+      match: confirmedTitle ? assessment.match : "possible",
+      matchReason: !confirmedTitle
+        ? "Individual store listing has not been confirmed"
+        : assessment.reason,
+    };
+  };
+  let suggestions: StoreSuggestion[] = parseSuggestions(raw).map((s) =>
+    classify(s, false),
+  );
   const candidates = array(object(raw).shopping_results).map(object);
   const chosen = candidates.find(
     (row) =>
@@ -154,10 +165,7 @@ export async function collectStoreOffers(
         more_stores: "true",
       });
       suggestions = [
-        ...parseStores(details).map((s) => ({
-          ...s,
-          match: matchProduct(query, `${s.title} ${s.condition}`),
-        })),
+        ...parseStores(details).map((s) => classify(s, true)),
         ...suggestions,
       ];
     } catch {
@@ -228,7 +236,7 @@ export async function discoverStores(query: string): Promise<DiscoveryResult> {
       "discovery_not_configured",
       "Automatic comparison is not connected yet. Your product is saved; there is no need to add other store links.",
     );
-  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v3:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
+  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v4:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
   const existing = inFlight.get(cacheKey);
   if (existing) return existing;
   const work = (async () => {

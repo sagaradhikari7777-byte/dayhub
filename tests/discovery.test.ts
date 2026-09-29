@@ -174,3 +174,145 @@ test("live-result regressions: foreign storefronts and accessories cannot win co
   );
   assert.equal(result.suggestions[0].match, "possible");
 });
+
+const dysonParts = [
+  "Dyson Sv55 Filter V8 Cyclone Sv55-a Replaces Black Rear Motor Hepa",
+  "Hepa filter for Dyson V7 and V8 cordless stick Vacuum cleaners",
+  "Dustbin Spare Part for Dyson V8 V7 SV11 SV10 Series Vacuum Cleaners",
+  "Dyson V8 Absolute Combination Tool for Animal & Motorhead Series",
+  "Dyson V8 battery",
+  "Dyson V8 charger",
+  "Dyson V8 brush roller",
+  "Dyson V8 wand",
+  "Dyson V8 compatible vacuum cleaner",
+];
+test("screenshot regression: Dyson parts never match the complete vacuum", () => {
+  for (const title of dysonParts) {
+    assert.equal(matchProduct("Dyson V8", title), "different", title);
+    assert.equal(
+      matchProduct("Dyson V8 Cyclone SV55", title),
+      "different",
+      title,
+    );
+  }
+  assert.equal(
+    matchProduct("Dyson V8", "Dyson V8 Cordless Stick Vacuum Cleaner"),
+    "likely",
+  );
+  assert.equal(
+    matchProduct("Dyson V8", "Dyson V8 Vacuum Cleaner with HEPA filter"),
+    "likely",
+  );
+  assert.equal(matchProduct("Dyson V8 filter", "Dyson V8 filter"), "likely");
+  assert.equal(
+    matchProduct("Dyson V8 filter", "Dyson V8 dustbin"),
+    "different",
+  );
+});
+test("identity checks reject sibling products and conflicting variants", () => {
+  for (const [tracked, listing] of [
+    ["Dyson V8", "Dyson V7 V8 Vacuum Cleaner"],
+    ["Dyson V8 Absolute", "Dyson V8 Animal"],
+    ["Dyson V8", "Dyson V8 Origin"],
+    ["Tom Ford Noir 50ml", "Tom Ford Noir Extreme 50ml"],
+    ["Tom Ford Noir EDP 50ml", "Tom Ford Noir EDT 50ml"],
+    ["Tom Ford Noir 35ml", "Tom Ford Noir 35ml 50ml"],
+    ["Sony WH1000XM6 Black", "Sony WH1000XM6 Silver"],
+    ["Apple iPhone 17 256GB", "Apple iPhone 17 128GB"],
+    ["Apple iPhone 17 256GB", "Apple iPhone 17 Pro 256GB"],
+    ["Ray Ban Wayfarer", "Ray Ban Aviator"],
+    ["Tom Ford Noir", "Tom Ford Oud Wood"],
+    ["Apple AirPods Pro 3", "Apple AirPods Pro 3 2 pack"],
+  ])
+    assert.equal(
+      matchProduct(tracked, listing),
+      "different",
+      `${tracked} vs ${listing}`,
+    );
+  assert.equal(
+    matchProduct("Tom Ford Noir EDP 50 ml", "Tom Ford Noir Eau de Parfum 50ml"),
+    "likely",
+  );
+  assert.equal(
+    matchProduct(
+      "Apple AirPods Pro 3",
+      "Apple AirPods Pro 3 with MagSafe Charging Case",
+    ),
+    "likely",
+  );
+  assert.equal(matchProduct("Dyson V8", "Dyson V8 UnknownEdition"), "possible");
+  assert.equal(
+    matchProduct("Vacuum cleaner", "Cheap Vacuum Cleaner"),
+    "possible",
+  );
+});
+test("bad Dyson search hits are skipped before expansion and never returned", async () => {
+  const calls: string[] = [];
+  const row = (title: string, index: number) => ({
+    title,
+    source: `Store ${index}`,
+    name: `Store ${index}`,
+    price: "$32.10",
+    extracted_price: 32.1,
+    link: `https://shop.example/${index}`,
+    immersive_product_page_token: String(index),
+  });
+  const correct = row("Dyson V8 Cordless Stick Vacuum Cleaner", 99);
+  const result = await collectStoreOffers("Dyson V8", async (params) => {
+    calls.push(params.engine);
+    if (params.engine === "google_shopping")
+      return { shopping_results: [...dysonParts.map(row), correct] };
+    assert.equal(params.page_token, "99");
+    return {
+      product_results: {
+        title: "Dyson V8",
+        stores: [
+          ...dysonParts.map(row),
+          { ...correct, price: "$399", extracted_price: 399 },
+          {
+            name: "Missing seller title",
+            price: "$9",
+            extracted_price: 9,
+            link: "https://shop.example/no-title",
+          },
+        ],
+      },
+    };
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(
+    result.suggestions.some((s) => dysonParts.includes(s.title)),
+    false,
+  );
+  assert.deepEqual(
+    result.suggestions.filter((s) => s.match === "likely").map((s) => s.price),
+    [399],
+  );
+  assert.equal(
+    result.suggestions.find((s) => s.retailer === "Missing seller title")
+      ?.match,
+    "possible",
+  );
+  assert.ok(
+    result.suggestions.find((s) => s.retailer === "Missing seller title")
+      ?.matchReason,
+  );
+});
+test("only accessory search hits produce an honest empty comparison", async () => {
+  let calls = 0;
+  const result = await collectStoreOffers("Dyson V8", async () => {
+    calls++;
+    return {
+      shopping_results: dysonParts.map((title, i) => ({
+        title,
+        source: "Parts store",
+        price: "$12",
+        extracted_price: 12,
+        link: `https://parts.example/${i}`,
+        immersive_product_page_token: String(i),
+      })),
+    };
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(result.suggestions, []);
+});

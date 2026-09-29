@@ -81,3 +81,11 @@ The Vercel connector still rejects access to the team, so environment-variable c
 - Production configuration reported enabled after redeployment; a real SerpApi request returned retailer offers from one AirPods Pro 3 product, including The Good Guys, Costco, Officeworks and others. The disposable API account was reset afterward.
 - Live results revealed a foreign-language accessory and overseas storefront. Added regression coverage and filtering: search-only hits cannot qualify for lowest-price ranking, explicit foreign country paths/currencies are rejected, and unsupported-script titles remain uncertain. Cache version changed to prevent reuse of the old matches.
 - 34 automated tests passed; final production build and deployment are checked before release.
+
+## Comparison identity regression — 29 September 2026
+
+- Reproduced the user's Dyson V8 screenshot: a replacement HEPA filter had won the main comparison, with dustbins and attachments in possible matches.
+- Added primary-item checks for appliance parts/accessories, symmetric edition/formulation checks, conflicting model/capacity checks, brand/name identity requirements and conservative handling of unknown variant words. Included accessories after `with` do not turn a whole product into a part.
+- Seller rows inheriting a group title cannot win the comparison. Uncertain listings explain what is missing. Accessory-only results give an honest empty comparison.
+- Bumped comparison cache to v4 so old misclassified offers are not reused.
+- 38 tests pass, including exact screenshot titles, positive vacuum matches, perfume/phone/headphone variants, seller-expansion selection and missing seller titles. Production build and TypeScript passed locally. Title matching remains heuristic rather than a verified GTIN/SKU guarantee.
