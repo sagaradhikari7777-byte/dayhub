@@ -1,0 +1,356 @@
+/* Compact dashboard styles are scoped so detail pages retain their layout. */
+.main-content:has(> .home-dashboard) {
+  max-width: 1100px;
+  padding-top: 24px;
+}
+.home-dashboard .home-heading {
+  margin: 0 0 16px;
+}
+.home-dashboard .home-heading .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.9px;
+  margin-bottom: 5px;
+}
+.home-dashboard .home-heading h1 {
+  font-size: clamp(23px, 2.3vw, 30px);
+  letter-spacing: -0.7px;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+.home-dashboard .home-heading > p:last-child {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.home-dashboard .glass {
+  padding: 14px 16px;
+  border-radius: 17px;
+}
+.home-dashboard .section-title {
+  margin-bottom: 7px;
+  gap: 8px;
+}
+.home-dashboard .section-title h2 {
+  font-size: 14px;
+  gap: 7px;
+}
+.home-dashboard .section-title h2 svg {
+  width: 17px;
+  height: 17px;
+}
+.home-dashboard .section-title .text-button {
+  min-height: 44px;
+  margin-block: -8px;
+}
+.home-dashboard .today-card {
+  margin-bottom: 12px;
+}
+.home-dashboard .today-stats {
+  gap: 6px;
+  margin-top: 10px;
+}
+.home-dashboard .today-stats button {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr);
+  align-items: center;
+  align-content: center;
+  gap: 3px 7px;
+  padding: 9px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  min-height: 60px;
+  text-align: left;
+}
+.home-dashboard .today-stats svg {
+  width: 16px;
+  height: 16px;
+}
+.home-dashboard .today-stats strong {
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+}
+.home-dashboard .today-stats button:last-child strong {
+  font-size: 18px;
+}
+.home-dashboard .today-stats small {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  white-space: normal;
+}
+.home-dashboard .dashboard-grid {
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.home-dashboard .widget {
+  min-width: 0;
+}
+.home-dashboard .briefing-card {
+  min-height: 0;
+}
+.home-dashboard .briefing-card p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.home-dashboard .weather-wrapper {
+  min-height: 0;
+  display: block;
+}
+.home-dashboard .weather-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  gap: 0 12px;
+}
+.home-dashboard .weather-location {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 44px;
+  margin-block: -9px -5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.home-dashboard .weather-main {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  gap: 9px;
+  margin: 0;
+}
+.home-dashboard .weather-main strong {
+  font-size: 33px;
+  letter-spacing: -1.4px;
+}
+.home-dashboard .weather-main sup {
+  font-size: 21px;
+}
+.home-dashboard .weather-main svg {
+  width: 30px;
+  height: 30px;
+}
+.home-dashboard .weather-card > span {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 12px;
+}
+.home-dashboard .weather-card small {
+  grid-column: 1;
+  grid-row: 3;
+  white-space: normal;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.home-dashboard .weather-error {
+  grid-column: 1 / -1;
+  padding: 8px 0 0;
+  flex-direction: row;
+  align-items: center;
+}
+.home-dashboard :is(.event-row, .data-row, .task-row, .delivery-row) {
+  padding: 9px 0;
+  gap: 9px;
+  min-height: 48px;
+}
+.home-dashboard .row-main strong {
+  font-size: 14px;
+}
+.home-dashboard .row-main small {
+  font-size: 12px;
+}
+.home-dashboard .task-check {
+  margin-block: 7px;
+}
+.home-dashboard .event-time {
+  font-size: 14px;
+}
+.home-dashboard .icon-tile {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+.home-dashboard .card-foot {
+  margin-top: 7px;
+  padding-top: 10px;
+}
+.home-dashboard .spending-stats {
+  margin-top: 10px;
+  gap: 8px;
+}
+.home-dashboard .spending-stats strong {
+  font-size: clamp(15px, 1.6vw, 19px);
+  overflow-wrap: anywhere;
+}
+.home-dashboard .spending-stats small {
+  margin-bottom: 3px;
+}
+.home-dashboard .spend-bar {
+  margin: 12px 0 10px;
+  height: 5px;
+}
+.home-dashboard .category-legend {
+  gap: 6px 12px;
+}
+.home-dashboard .price-watch-sub {
+  margin-bottom: 2px;
+}
+.home-dashboard .price-card.compact {
+  padding: 9px 0;
+  gap: 10px;
+}
+.home-dashboard .compact .product-image {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+.home-dashboard .compact .product-image svg {
+  width: 27px;
+  height: 27px;
+}
+.home-dashboard .price-content {
+  gap: 3px;
+}
+.home-dashboard .price-content > strong {
+  font-size: 14px;
+}
+.home-dashboard .price-content > small {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.home-dashboard .price-line b {
+  font-size: 16px;
+}
+.home-dashboard .price-watch-home > .muted {
+  font-size: 12px;
+  margin-top: 7px;
+}
+.home-dashboard .notes-preview {
+  gap: 7px;
+}
+.home-dashboard .notes-preview button {
+  padding: 10px 12px;
+}
+.home-dashboard .notes-preview button > span {
+  display: none;
+}
+.home-dashboard .notes-preview h3 {
+  font-size: 14px;
+  margin: 0 20px 3px 0;
+}
+.home-dashboard .notes-preview p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.home-dashboard .home-quiet {
+  margin-top: 12px;
+}
+.home-dashboard .home-quiet h2 {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.home-quiet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+.home-quiet-grid button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 52px;
+  text-align: left;
+  padding: 7px 0;
+}
+.home-quiet-grid button > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.home-quiet-grid button > svg:last-child {
+  margin-left: auto;
+  width: 12px;
+}
+.home-quiet-grid span {
+  display: grid;
+  min-width: 0;
+}
+.home-quiet-grid strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.home-quiet-grid small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+.home-dashboard .customize {
+  margin: 10px auto 0;
+  min-height: 44px;
+}
+@media (max-width: 850px) {
+  .home-dashboard .today-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .home-dashboard .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-quiet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .main-content:has(> .home-dashboard) {
+    padding: 8px 14px calc(100px + env(safe-area-inset-bottom));
+  }
+  .app-shell:has(.home-dashboard) .topbar {
+    height: calc(56px + env(safe-area-inset-top));
+    padding-inline: 14px;
+  }
+  .home-dashboard .home-heading {
+    margin-bottom: 13px;
+  }
+  .home-dashboard .glass {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+  .home-dashboard .today-stats button {
+    min-height: 56px;
+    padding: 7px 9px;
+  }
+  .home-dashboard .today-stats strong {
+    font-size: 19px;
+  }
+  .home-dashboard .today-stats button:last-child strong {
+    font-size: 17px;
+  }
+  .home-dashboard .section-title h2 {
+    max-width: none;
+  }
+  .home-dashboard .dashboard-grid {
+    gap: 10px;
+  }
+  .home-dashboard .today-card,
+  .home-dashboard .home-quiet {
+    margin-bottom: 0;
+  }
+  .home-dashboard .today-card {
+    margin-bottom: 10px;
+  }
+  .home-dashboard .home-quiet {
+    margin-top: 10px;
+  }
+}
+@media (max-width: 360px) {
+  .home-dashboard .today-stats button {
+    column-gap: 4px;
+    padding-inline: 6px;
+  }
+  .home-dashboard .today-stats button:last-child strong {
+    font-size: 15px;
+  }
+  .home-quiet-grid {
+    gap: 4px 9px;
+  }
+}

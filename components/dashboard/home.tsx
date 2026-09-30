@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   StickyNote,
   ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Entry, Kind } from "@/types";
@@ -105,28 +106,15 @@ export function Home({
         <div className="section-title">
           <h2>
             <Sparkles size={18} />
-            Your daily briefing
+            Daily briefing
           </h2>
-          <span className="badge subtle">Made for today</span>
         </div>
         <p>{briefing(entries, settings)}</p>
-        <span className="briefing-foot">
-          A little clarity for the day ahead.
-        </span>
       </GlassCard>
     ),
     weather: (
       <GlassCard className="weather-wrapper">
         <WeatherCard onLocation={() => navigate("settings")} />
-        <div className="weather-aside">
-          <span className="eyebrow">A MOMENT OUTSIDE</span>
-          <h3>
-            Make room
-            <br />
-            for a breather.
-          </h3>
-          <p>Your day, at your pace.</p>
-        </div>
       </GlassCard>
     ),
     events: (
@@ -151,7 +139,7 @@ export function Home({
     ),
     tasks: (
       <DashboardSection
-        title="On your list"
+        title="Tasks"
         icon={<CheckCheck size={19} />}
         action={() => navigate("tasks")}
       >
@@ -171,7 +159,7 @@ export function Home({
     ),
     bills: (
       <DashboardSection
-        title="Bills on the horizon"
+        title="Bills due soon"
         icon={<Receipt size={18} />}
         action={() => navigate("bills")}
       >
@@ -205,7 +193,7 @@ export function Home({
     ),
     spending: (
       <DashboardSection
-        title="A glance at spending"
+        title="Spending"
         icon={<Wallet size={18} />}
         action={() => navigate("expenses")}
       >
@@ -214,7 +202,7 @@ export function Home({
     ),
     deliveries: (
       <DashboardSection
-        title="On its way"
+        title="Deliveries"
         icon={<Package size={18} />}
         action={() => navigate("deliveries")}
       >
@@ -235,7 +223,7 @@ export function Home({
     ),
     prices: (
       <DashboardSection
-        title="Good things come to those who wait"
+        title="Price Watch"
         icon={<TrendingDown size={19} />}
         action={() => navigate("products")}
         className="price-watch-home"
@@ -246,7 +234,6 @@ export function Home({
               ? `${drops.length} price drops today`
               : "Your price watch"}
           </span>
-          <small>Patience looks good on you.</small>
         </div>
         {products.length ? (
           (drops.length ? drops : products)
@@ -269,7 +256,7 @@ export function Home({
     ),
     notes: (
       <DashboardSection
-        title="Keep in mind"
+        title="Pinned notes"
         icon={<StickyNote size={18} />}
         action={() => navigate("notes")}
       >
@@ -315,8 +302,70 @@ export function Home({
     ...urgent.filter((w) => order.includes(w)),
     ...order.filter((w) => !urgent.includes(w)),
   ];
+  const quietSections: Record<
+    string,
+    {
+      count: number;
+      title: string;
+      status: string;
+      route: string;
+      icon: typeof Sun;
+    }
+  > = {
+    tasks: {
+      count: tasks.length,
+      title: "Tasks",
+      status: "Nothing due",
+      route: "tasks",
+      icon: CheckCheck,
+    },
+    events: {
+      count: events.length,
+      title: "Calendar",
+      status: "No upcoming events",
+      route: "events",
+      icon: CalendarDays,
+    },
+    bills: {
+      count: bills.length,
+      title: "Bills",
+      status: "Nothing unpaid",
+      route: "bills",
+      icon: Receipt,
+    },
+    deliveries: {
+      count: deliveries.length,
+      title: "Deliveries",
+      status: "Nothing in transit",
+      route: "deliveries",
+      icon: Package,
+    },
+    prices: {
+      count: products.length,
+      title: "Price Watch",
+      status: "Track a product",
+      route: "products",
+      icon: TrendingDown,
+    },
+    notes: {
+      count: notes.length,
+      title: "Notes",
+      status: "No pinned notes",
+      route: "notes",
+      icon: StickyNote,
+    },
+    spending: {
+      count: entries.filter((e) => e.kind === "expenses").length,
+      title: "Spending",
+      status: "No expenses yet",
+      route: "expenses",
+      icon: Wallet,
+    },
+  };
+  const quiet = order.filter((w) => quietSections[w]?.count === 0);
+  const active = order.filter((w) => !quiet.includes(w));
   return (
-    <>
+    <div className="home-dashboard">
       <header className="home-heading">
         <p className="eyebrow">
           {new Date().toLocaleDateString("en-AU", {
@@ -327,23 +376,23 @@ export function Home({
         </p>
         <h1>
           Good {hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"},{" "}
-          <span>{settings.name}.</span>
+          <span>{settings.name}</span>
         </h1>
         <p>
           <span className="status-orb" />
           {attention
             ? `${attention} thing${attention > 1 ? "s" : ""} could use your attention.`
-            : "A fresh perspective on your day."}
+            : "Your day looks clear."}
         </p>
       </header>
       <GlassCard className="today-card">
         <div className="section-title">
           <h2>
             <Sun size={20} />
-            Today, at a glance
+            Today
           </h2>
           <button className="text-button" onClick={() => navigate("today")}>
-            Your timeline <ArrowRight size={16} />
+            Timeline <ArrowRight size={16} />
           </button>
         </div>
         <div className="today-stats">
@@ -357,19 +406,37 @@ export function Home({
         </div>
       </GlassCard>
       <div className="dashboard-grid">
-        {order.map((w) => (
+        {active.map((w) => (
           <div key={w} className={`widget widget-${w}`}>
             {widgets[w]}
           </div>
         ))}
       </div>
+      {quiet.length > 0 && (
+        <GlassCard className="home-quiet">
+          <h2>All clear</h2>
+          <div className="home-quiet-grid">
+            {quiet.map((w) => {
+              const section = quietSections[w],
+                Icon = section.icon;
+              return (
+                <button key={w} onClick={() => navigate(section.route)}>
+                  <Icon size={17} aria-hidden="true" />
+                  <span>
+                    <strong>{section.title}</strong>
+                    <small>{section.status}</small>
+                  </span>
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+        </GlassCard>
+      )}
       <button className="customize" onClick={() => navigate("widgets")}>
         <SlidersHorizontal size={16} />
-        Make this space yours
+        Edit Home
       </button>
-      <p className="home-signoff">
-        A little more present. A little less to remember.
-      </p>
-    </>
+    </div>
   );
 }

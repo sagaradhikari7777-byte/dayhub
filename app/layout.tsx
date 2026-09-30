@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./home.css";
 export const metadata: Metadata = {
   title: "DayHub — Your day. One place.",
   description:
