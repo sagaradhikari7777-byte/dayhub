@@ -5,6 +5,7 @@ import {
   amazonAsin,
   amazonShareRedirect,
   parseAmazon,
+  requireExactAmazonPrice,
 } from "../lib/price-tracking/retailers/amazon";
 const url = "https://www.amazon.com.au/Example/dp/B0ABC12345?th=1&psc=1";
 const title = `<input id="ASIN" value="B0ABC12345"><span id="productTitle">Example headphones &amp; case</span>`;
@@ -77,7 +78,28 @@ test("Amazon AU parses selected payable price, name, image and stock", () => {
     image: "https://m.media-amazon.com/images/example.jpg",
     availability: "In stock",
     source: "Amazon selected product price",
+    priceType: "exact",
   });
+});
+test("seller summary prices cannot overwrite a confirmed price or trigger alerts", () => {
+  const summary = parseAmazon(
+    `${title}<a id="aod-ingress-link" href="/gp/offer-listing/B0ABC12345/ref=dp_olp?condition=NEW">New (2) from <span class="a-offscreen">$186.20</span></a>`,
+    url,
+  )!;
+  assert.throws(
+    () => requireExactAmazonPrice(summary, url),
+    (e: unknown) => {
+      const error = e as { code: string; preview: { suggestedPrice: number } };
+      assert.equal(error.code, "amazon_offer_unconfirmed");
+      assert.equal(error.preview.suggestedPrice, 186.2);
+      return true;
+    },
+  );
+  const exact = parseAmazon(
+    `${title}<div id="corePriceDisplay_desktop_feature_div"><span class="a-price priceToPay"><span class="a-offscreen">$176.00</span></span></div>`,
+    url,
+  )!;
+  assert.equal(requireExactAmazonPrice(exact, url).price, 176);
 });
 test("Amazon never imports recommendations, list price or coupon savings as current price", () => {
   assert.equal(

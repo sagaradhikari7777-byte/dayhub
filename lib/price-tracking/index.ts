@@ -3,7 +3,12 @@ import { parseProduct } from "./retailers/generic";
 import { allEntries, mutate, owners } from "@/lib/db";
 import { uid } from "@/lib/model";
 import { ProductLookupError } from "./errors";
-import { parseAmazon, amazonShareRedirect } from "./retailers/amazon";
+import {
+  parseAmazon,
+  amazonShareRedirect,
+  requireExactAmazonPrice,
+} from "./retailers/amazon";
+import { schedulerConfigured } from "@/lib/scheduler-auth";
 // Retailer-specific adapters can replace the standards-based JSON-LD parser without changing callers.
 const retailers = [
   { hosts: ["amazon.com.au"], name: "Amazon" },
@@ -34,6 +39,8 @@ export async function lookupProduct(url: string) {
       "price_not_readable",
       "This store does not expose a readable product price. Please enter it manually.",
     );
+  if (new URL(url).hostname.replace(/^www\./, "") === "amazon.com.au")
+    requireExactAmazonPrice(result, url);
   const hostname = new URL(url).hostname.replace(/^www\./, "");
   const retailer = retailers.find((r) => r.hosts.includes(hostname));
   return {
@@ -63,7 +70,7 @@ export async function checkTrackedProducts(
     skipped,
     limited,
     results,
-    scheduled: Boolean(process.env.CRON_SECRET),
+    scheduled: schedulerConfigured(),
   });
   const deadline = Date.now() + 45000;
   for (const owner of ids) {
@@ -82,7 +89,7 @@ export async function checkTrackedProducts(
       if (
         (e.lastCheckAttempt || e.lastChecked) &&
         Date.now() - new Date(e.lastCheckAttempt || e.lastChecked!).getTime() <
-          (options.manual ? 60_000 : 12 * 3600_000)
+          (options.manual ? 60_000 : 50 * 60_000)
       ) {
         skipped++;
         results.push({

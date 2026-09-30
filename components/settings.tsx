@@ -353,8 +353,9 @@ export function Settings({ back }: { back: () => void }) {
             </label>
           ))}
           <p className="hint">
-            Due reminders appear when you open DayHub. Automatic price alerts
-            require the scheduled server check.
+            Price checks run about once an hour. Enable notifications in the
+            Home Screen app to receive verified price-drop alerts while DayHub
+            is closed. Store checks and notification delivery can be delayed.
           </p>
           <div className="button-row">
             <button
@@ -371,6 +372,20 @@ export function Settings({ back }: { back: () => void }) {
             >
               <Bell size={17} />
               Enable background push
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={async () => {
+                try {
+                  const { testPush } = await import("@/lib/push-client");
+                  setMessage(await testPush());
+                } catch (e) {
+                  setMessage((e as Error).message);
+                }
+              }}
+            >
+              Send test notification
             </button>
             <button
               type="button"

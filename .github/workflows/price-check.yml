@@ -1,0 +1,41 @@
+name: Check prices and send push alerts
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/price-check.yml]
+permissions:
+  id-token: write
+  contents: read
+concurrency:
+  group: dayhub-price-check
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check tracked products using a short-lived GitHub identity
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.error, urllib.parse, urllib.request
+          endpoint = 'https://dayhub-wine.vercel.app/api/cron/prices'
+          url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&audience=' + urllib.parse.quote(endpoint, safe='')
+          req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              token = json.load(response)['value']
+          req = urllib.request.Request(endpoint, headers={'Authorization': 'Bearer ' + token})
+          for attempt in range(5):
+              try:
+                  with urllib.request.urlopen(req, timeout=90) as response:
+                      data = json.load(response)
+                  break
+              except urllib.error.HTTPError as error:
+                  if error.code not in [401, 503] or attempt == 4:
+                      raise
+                  time.sleep(20)
+          print(json.dumps({key: data.get(key) for key in ['checked', 'failed', 'skipped', 'limited']}))
+          PY

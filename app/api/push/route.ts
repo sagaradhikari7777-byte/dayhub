@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { owner, sameOrigin } from "@/lib/auth";
 import { allEntries } from "@/lib/db";
-import {
-  pushConfigured,
-  saveSubscription,
-  removeSubscription,
-} from "@/lib/push";
+import { saveSubscription, removeSubscription } from "@/lib/push";
+import { getPushConfig } from "@/lib/push-config";
 const endpoint = z
   .string()
   .url()
@@ -33,15 +30,30 @@ const schema = z.object({
   }),
 });
 export async function GET() {
-  return NextResponse.json({
-    available: pushConfigured(),
-    publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null,
-  });
+  try {
+    const config = await getPushConfig();
+    return NextResponse.json(
+      {
+        available: Boolean(config),
+        publicKey: config?.publicKey || null,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        available: false,
+        publicKey: null,
+        error: "Notification setup is temporarily unavailable. Try again.",
+      },
+      { status: 503 },
+    );
+  }
 }
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    if (!pushConfigured())
+    if (!(await getPushConfig()))
       return NextResponse.json(
         { error: "Background push is not configured on this server yet." },
         { status: 503 },

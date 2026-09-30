@@ -7,16 +7,18 @@ export async function enablePush() {
     throw new Error(
       "On iPhone, add DayHub to your Home Screen first. Push requires a supported browser and HTTPS.",
     );
-  const r = await fetch("/api/push"),
-    data = await r.json();
-  if (!r.ok || !data.available)
-    throw new Error(
-      "Background push needs VAPID keys on the server. In-app notifications are already available.",
-    );
+  // Safari requires this request directly inside the user's button gesture,
+  // before waiting for a network request.
   const permission = await Notification.requestPermission();
   if (permission !== "granted")
     throw new Error(
       "Notification permission was not granted. In-app alerts still work.",
+    );
+  const r = await fetch("/api/push"),
+    data = await r.json();
+  if (!r.ok || !data.available)
+    throw new Error(
+      "Notification setup is temporarily unavailable. Try again shortly.",
     );
   const registration = await navigator.serviceWorker.ready;
   const base64 = data.publicKey.replace(/-/g, "+").replace(/_/g, "/");
@@ -34,6 +36,13 @@ export async function enablePush() {
   });
   if (!saved.ok) throw new Error((await saved.json()).error);
   return "Background notifications are enabled on this device.";
+}
+export async function testPush() {
+  const response = await fetch("/api/push/test", { method: "POST" });
+  const data = await response.json();
+  if (!response.ok)
+    throw new Error(data.error || "The test notification could not be sent.");
+  return "Test notification sent. Check your notification centre.";
 }
 export async function disablePush() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window))

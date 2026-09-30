@@ -19,6 +19,7 @@ export type ProductResult = {
   availability: "In stock" | "Out of stock" | "Unknown";
   retailer: string;
   source?: string;
+  priceType?: "exact" | "seller-from";
 };
 const typeIs = (value: unknown, type: string) =>
   array(value).some((v) => String(v).split(/[\/#]/).at(-1) === type);

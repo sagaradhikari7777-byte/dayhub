@@ -164,7 +164,27 @@ export function parseAmazon(html: string, url: string): ProductResult | null {
         ? "In stock"
         : "Unknown",
     source,
+    priceType: source.includes("new seller starting price")
+      ? "seller-from"
+      : "exact",
   };
+}
+
+export function requireExactAmazonPrice(result: ProductResult, url: string) {
+  if (result.priceType === "seller-from")
+    throw new ProductLookupError(
+      "amazon_offer_unconfirmed",
+      `Amazon only exposed a new-seller summary from $${result.price.toFixed(2)}, which may differ from the offer you see. Enter your displayed price; DayHub will keep it until an exact offer can be verified.`,
+      {
+        name: result.name,
+        retailer: result.retailer,
+        image: result.image,
+        currency: result.currency,
+        url,
+        suggestedPrice: result.price,
+      },
+    );
+  return result;
 }
 
 // Some Amazon share links return an HTML redirect instead of a Location

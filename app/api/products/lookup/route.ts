@@ -32,6 +32,8 @@ export async function POST(req: Request) {
           error instanceof ProductLookupError
             ? error.code
             : "lookup_unavailable",
+        preview:
+          error instanceof ProductLookupError ? error.preview : undefined,
       },
       { status: 422 },
     );

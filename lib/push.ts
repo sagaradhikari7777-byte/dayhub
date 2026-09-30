@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { createHash } from "node:crypto";
 import { allEntries } from "./db";
+import { getPushConfig } from "./push-config";
 import {
   putSubscription,
   deleteSubscription,
@@ -8,13 +9,6 @@ import {
   pushReceipts,
   recordPush,
 } from "./db/push-repository";
-export function pushConfigured() {
-  return Boolean(
-    process.env.VAPID_PUBLIC_KEY &&
-    process.env.VAPID_PRIVATE_KEY &&
-    process.env.VAPID_SUBJECT,
-  );
-}
 export type Subscription = {
   endpoint: string;
   keys: { p256dh: string; auth: string };
@@ -37,12 +31,9 @@ export async function removeSubscription(owner: string, endpoint: string) {
   );
 }
 export async function dispatchPush(owner: string) {
-  if (!pushConfigured()) return;
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!,
-  );
+  const config = await getPushConfig();
+  if (!config) return;
+  webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
   const data = await allEntries(owner),
     settings = data.find((e) => e.kind === "settings")?.profile;
   const subs = await subscriptions(owner);
@@ -77,4 +68,30 @@ export async function dispatchPush(owner: string) {
       }
     }
   }
+}
+export async function sendTestPush(owner: string) {
+  const config = await getPushConfig();
+  if (!config) throw new Error("Notifications are not configured.");
+  webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+  const subs = await subscriptions(owner);
+  let sent = 0;
+  for (const sub of subs.slice(0, 3)) {
+    try {
+      await webpush.sendNotification(
+        JSON.parse(String(sub.data)),
+        JSON.stringify({
+          id: `test-${Date.now()}`,
+          title: "DayHub notifications are ready",
+          body: "Verified price-drop alerts can reach you while DayHub is closed.",
+          url: "/#prices",
+        }),
+        { TTL: 300, timeout: 6000 },
+      );
+      sent++;
+    } catch (e) {
+      if ([404, 410].includes((e as { statusCode: number }).statusCode))
+        await deleteSubscription(owner, sub.id);
+    }
+  }
+  return sent;
 }

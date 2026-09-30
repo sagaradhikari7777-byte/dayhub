@@ -48,7 +48,15 @@ export function AddStore({
         signal: AbortSignal.timeout(45000),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        if (data.preview) {
+          setUrl(data.preview.url);
+          setRetailer(data.preview.retailer);
+          setTitle(data.preview.name);
+          setImage(data.preview.image);
+        }
+        throw new Error(data.error);
+      }
       if (data.currency !== settings.currency)
         throw new Error(
           `This listing is in ${data.currency}; your comparison uses ${settings.currency}.`,

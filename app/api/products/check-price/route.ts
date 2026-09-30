@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { checkTrackedProducts } from "@/lib/price-tracking";
 import { owner, sameOrigin } from "@/lib/auth";
 import { z } from "zod";
+import { schedulerConfigured } from "@/lib/scheduler-auth";
+import { dispatchPush } from "@/lib/push";
 export const maxDuration = 60;
 export async function GET() {
   return NextResponse.json(
-    { scheduled: Boolean(process.env.CRON_SECRET) },
+    { scheduled: schedulerConfigured(), intervalMinutes: 60 },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -24,12 +26,13 @@ export async function POST(req: Request) {
         { error: "Choose a valid tracked product." },
         { status: 400 },
       );
-    return NextResponse.json(
-      await checkTrackedProducts(await owner(), {
-        ...options.data,
-        manual: true,
-      }),
-    );
+    const id = await owner();
+    const result = await checkTrackedProducts(id, {
+      ...options.data,
+      manual: true,
+    });
+    await dispatchPush(id);
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json(
       { error: "Price checking is temporarily unavailable." },

@@ -196,7 +196,21 @@ export function Editor({
         body: JSON.stringify({ url: form.url }),
       });
       const p = await r.json();
-      if (!r.ok) throw new Error(p.error);
+      if (!r.ok) {
+        if (p.preview)
+          setForm((f) => ({
+            ...f,
+            title: p.preview.name,
+            retailer: p.preview.retailer,
+            image: p.preview.image,
+            url: p.preview.url,
+            checkStatus: "failed",
+            checkCode: p.code,
+            checkError: p.error,
+            priceSource: "Manual entry — Amazon offer unconfirmed",
+          }));
+        throw new Error(p.error);
+      }
       if (p.currency !== settings.currency)
         throw new Error(
           `Store price is in ${p.currency}. Enter the equivalent ${settings.currency} price manually.`,

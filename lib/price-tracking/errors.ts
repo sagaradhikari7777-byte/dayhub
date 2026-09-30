@@ -2,6 +2,14 @@ export class ProductLookupError extends Error {
   constructor(
     public readonly code: string,
     message: string,
+    public readonly preview?: {
+      name: string;
+      retailer: string;
+      image: string;
+      currency: string;
+      url: string;
+      suggestedPrice?: number;
+    },
   ) {
     super(message);
     this.name = "ProductLookupError";
