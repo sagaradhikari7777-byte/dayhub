@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { enablePush, disablePush, testPush } from "@/lib/push-client";
 import {
   User,
   Palette,
@@ -363,7 +364,6 @@ export function Settings({ back }: { back: () => void }) {
               className="secondary"
               onClick={async () => {
                 try {
-                  const { enablePush } = await import("@/lib/push-client");
                   setMessage(await enablePush());
                 } catch (e) {
                   setMessage((e as Error).message);
@@ -378,7 +378,6 @@ export function Settings({ back }: { back: () => void }) {
               className="secondary"
               onClick={async () => {
                 try {
-                  const { testPush } = await import("@/lib/push-client");
                   setMessage(await testPush());
                 } catch (e) {
                   setMessage((e as Error).message);
@@ -392,7 +391,6 @@ export function Settings({ back }: { back: () => void }) {
               className="text-button"
               onClick={async () => {
                 try {
-                  const { disablePush } = await import("@/lib/push-client");
                   setMessage(await disablePush());
                 } catch (e) {
                   setMessage((e as Error).message);
