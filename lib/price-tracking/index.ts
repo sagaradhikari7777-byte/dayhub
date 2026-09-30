@@ -3,6 +3,7 @@ import { parseProduct } from "./retailers/generic";
 import { allEntries, mutate, owners } from "@/lib/db";
 import { uid } from "@/lib/model";
 import { ProductLookupError } from "./errors";
+import { parseAmazon, amazonShareRedirect } from "./retailers/amazon";
 // Retailer-specific adapters can replace the standards-based JSON-LD parser without changing callers.
 const retailers = [
   { hosts: ["amazon.com.au"], name: "Amazon" },
@@ -15,7 +16,9 @@ export async function lookupProduct(url: string) {
   if (/^(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}\//i.test(url)) url = `https://${url}`;
   let html: string;
   try {
-    const document = await safeFetchDocument(url);
+    let document = await safeFetchDocument(url);
+    const shareTarget = amazonShareRedirect(document.html, document.url);
+    if (shareTarget) document = await safeFetchDocument(shareTarget);
     html = document.html;
     url = document.url;
   } catch (error) {
@@ -25,7 +28,7 @@ export async function lookupProduct(url: string) {
       "DayHub could not connect to this store. Check the product link or enter the price manually.",
     );
   }
-  const result = parseProduct(html, url);
+  const result = parseAmazon(html, url) || parseProduct(html, url);
   if (!result)
     throw new ProductLookupError(
       "price_not_readable",

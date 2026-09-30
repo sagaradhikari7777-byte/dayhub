@@ -33,7 +33,13 @@ function publicAddress(ip: string) {
 export async function safeFetchDocument(
   url: string,
   redirects = 0,
+  deadline = Date.now() + 25000,
 ): Promise<{ html: string; url: string }> {
+  if (Date.now() >= deadline)
+    throw new ProductLookupError(
+      "store_timeout",
+      "This store took too long to respond. Try again later.",
+    );
   const u = new URL(url);
   if (
     u.protocol !== "https:" ||
@@ -47,7 +53,8 @@ export async function safeFetchDocument(
   const addresses = await lookup(u.hostname, { all: true });
   if (!addresses.length || addresses.some((a) => !publicAddress(a.address)))
     throw new Error("This address is not a public store.");
-  const ip = addresses[0];
+  // Prefer IPv4: some serverless regions resolve IPv6 but cannot route it.
+  const ip = addresses.find((a) => a.family === 4) || addresses[0];
   return new Promise((resolve, reject) => {
     const req = https.get(
       u,
@@ -67,12 +74,40 @@ export async function safeFetchDocument(
           res.headers.location
         ) {
           res.resume();
-          if (redirects >= 3)
-            return reject(new Error("Too many store redirects."));
-          safeFetchDocument(
-            new URL(res.headers.location, u).href,
-            redirects + 1,
-          ).then(resolve, reject);
+          if (redirects >= 6)
+            return reject(
+              new ProductLookupError(
+                "store_redirect_limit",
+                "This store link redirects too many times. Please use the full product-page link.",
+              ),
+            );
+          let next: URL;
+          try {
+            next = new URL(res.headers.location, u);
+          } catch {
+            return reject(
+              new ProductLookupError(
+                "invalid_store_redirect",
+                "This store returned an invalid product link.",
+              ),
+            );
+          }
+          // Amazon's share service may return a legacy HTTP destination.
+          // Upgrade known Amazon hosts; never send a plaintext store request.
+          if (
+            next.protocol === "http:" &&
+            [
+              "amazon.com.au",
+              "www.amazon.com.au",
+              "amzn.asia",
+              "amzn.to",
+            ].includes(next.hostname)
+          )
+            next.protocol = "https:";
+          safeFetchDocument(next.href, redirects + 1, deadline).then(
+            resolve,
+            reject,
+          );
           return;
         }
         if (res.statusCode !== 200) {
@@ -103,15 +138,31 @@ export async function safeFetchDocument(
         res.on("error", reject);
       },
     );
-    req.setTimeout(9000, () =>
-      req.destroy(
-        new ProductLookupError(
-          "store_timeout",
-          "This store took too long to respond. Try again later or enter the price manually.",
+    const timer = setTimeout(
+      () =>
+        req.destroy(
+          new ProductLookupError(
+            "store_timeout",
+            "This store took too long to respond. Try again later or enter the price manually.",
+          ),
         ),
-      ),
+      Math.max(1, Math.min(9000, deadline - Date.now())),
     );
-    req.on("error", reject);
+    req.on("close", () => clearTimeout(timer));
+    req.on("error", (error: NodeJS.ErrnoException) => {
+      if (error instanceof ProductLookupError) return reject(error);
+      const code = ["ENOTFOUND", "EAI_AGAIN"].includes(error.code || "")
+        ? "store_dns_failed"
+        : "store_connection_failed";
+      reject(
+        new ProductLookupError(
+          code,
+          code === "store_dns_failed"
+            ? "The store link could not be resolved. Try again or copy the full product-page link."
+            : "The store connection could not be completed. Try again or copy the full product-page link.",
+        ),
+      );
+    });
   });
 }
 export async function safeFetch(url: string): Promise<string> {
