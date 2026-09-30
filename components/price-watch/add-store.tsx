@@ -193,6 +193,12 @@ export function AddStore({
             >
               {busy ? "Please wait…" : "Read store price"}
             </button>
+            {verified?.source.includes("new seller starting price") && (
+              <p className="hint">
+                Amazon's lowest listed new-seller price. Confirm delivery,
+                seller and availability at the store.
+              </p>
+            )}
             <label>
               Product name
               <input

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readableStoreDocument } from "../lib/price-tracking/fetch";
 import {
   amazonAsin,
   amazonShareRedirect,
@@ -7,6 +8,65 @@ import {
 } from "../lib/price-tracking/retailers/amazon";
 const url = "https://www.amazon.com.au/Example/dp/B0ABC12345?th=1&psc=1";
 const title = `<input id="ASIN" value="B0ABC12345"><span id="productTitle">Example headphones &amp; case</span>`;
+test("missing Amazon content type is accepted only for a bounded HTML document", () => {
+  assert.equal(
+    readableStoreDocument("<!doctype html><html>product</html>", ""),
+    true,
+  );
+  assert.equal(
+    readableStoreDocument("<html>product</html>", "application/octet-stream"),
+    true,
+  );
+  assert.equal(readableStoreDocument('{"error":"missing"}', ""), false);
+  assert.equal(
+    readableStoreDocument("<html>product</html>", "application/json"),
+    false,
+  );
+});
+test("Amazon seller-only pages use the selected ASIN's new offers and preserve colour/size", () => {
+  const offers = `<a id="aod-ingress-link" href="/gp/offer-listing/B0ABC12345/ref=dp_olp_NEW_mbc?condition=NEW"><span>New (2) from</span><span class="a-price"><span class="a-offscreen">$186.20</span></span></a>`;
+  const state = `<script type="a-state">${JSON.stringify({
+    sortedDimValuesForAllDims: {
+      size_name: [
+        {
+          dimensionValueState: "SELECTED",
+          defaultAsin: "B0ABC12345",
+          dimensionValueDisplayText: "55mm",
+        },
+      ],
+      color_name: [
+        {
+          dimensionValueState: "SELECTED",
+          defaultAsin: "B0ABC12345",
+          dimensionValueDisplayText: "Havana & Dark Grey",
+        },
+        {
+          dimensionValueState: "AVAILABLE",
+          defaultAsin: "B0OTHER123",
+          dimensionValueDisplayText: "Black",
+        },
+      ],
+    },
+  })}</script>`;
+  const result = parseAmazon(title + offers + state, url);
+  assert.equal(result?.price, 186.2);
+  assert.equal(
+    result?.name,
+    "Example headphones & case · 55mm · Havana & Dark Grey",
+  );
+  assert.match(result?.source || "", /new seller starting price/);
+  assert.equal(
+    parseAmazon(title + offers.replace("condition=NEW", "condition=USED"), url),
+    null,
+  );
+  assert.equal(
+    parseAmazon(
+      title + offers.replace("listing/B0ABC12345", "listing/B0OTHER123"),
+      url,
+    ),
+    null,
+  );
+});
 const page = `${title}<div id="corePriceDisplay_desktop_feature_div"><span class="a-price a-text-price"><span class="a-offscreen">$299.00</span></span><span class="a-price priceToPay"><span class="a-offscreen">$179.95</span><span>$179</span></span></div><div id="availability"><span>In stock</span></div><img id="landingImage" src="https://m.media-amazon.com/images/example.jpg"><div id="recommendations"><span class="a-price"><span class="a-offscreen">$9.99</span></span></div>`;
 test("Amazon AU parses selected payable price, name, image and stock", () => {
   assert.deepEqual(parseAmazon(page, url), {

@@ -4,6 +4,17 @@ import { isIP, type LookupFunction } from "node:net";
 import type { LookupAddress } from "node:dns";
 import { ProductLookupError, storeResponseError } from "./errors";
 
+export function readableStoreDocument(
+  html: string,
+  contentType: string,
+): boolean {
+  if (/text\/html|xhtml/i.test(contentType)) return true;
+  return (
+    (!contentType || /application\/octet-stream/i.test(contentType)) &&
+    /<(?:!doctype\s+html|html)(?:\s|>)/i.test(html.slice(0, 2048))
+  );
+}
+
 // Node's connection family selection requests an array with `all: true`.
 // Both callback shapes must retain the address already checked for SSRF.
 export function pinnedLookup(address: LookupAddress): LookupFunction {
@@ -129,7 +140,13 @@ export async function safeFetchDocument(
           reject(storeResponseError(res.statusCode || 0));
           return;
         }
-        if (!/text\/html|xhtml/.test(res.headers["content-type"] || "")) {
+        const contentType = res.headers["content-type"] || "";
+        // Some Amazon responses omit Content-Type. Inspect the bounded body
+        // instead of discarding an otherwise valid product document.
+        if (
+          contentType &&
+          !/text\/html|xhtml|application\/octet-stream/i.test(contentType)
+        ) {
           res.resume();
           reject(
             new ProductLookupError(
@@ -148,12 +165,17 @@ export async function safeFetchDocument(
             reject(new Error("This page is too large to analyse."));
           } else chunks.push(c);
         });
-        res.on("end", () =>
-          resolve({
-            html: Buffer.concat(chunks).toString("utf8"),
-            url: u.href,
-          }),
-        );
+        res.on("end", () => {
+          const html = Buffer.concat(chunks).toString("utf8");
+          if (!readableStoreDocument(html, contentType))
+            return reject(
+              new ProductLookupError(
+                "store_content_unreadable",
+                "The store did not return a readable product page. Please use the full product-page link.",
+              ),
+            );
+          resolve({ html, url: u.href });
+        });
         res.on("error", reject);
       },
     );

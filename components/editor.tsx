@@ -257,7 +257,9 @@ export function Editor({
               </div>
             </label>
             <p className="hint">
-              Some stores restrict checks. Manual prices always work.
+              {form.priceSource?.includes("new seller starting price")
+                ? "Amazon's lowest listed new-seller price. Confirm delivery, seller and availability at the store."
+                : "Some stores restrict checks. Manual prices always work."}
             </p>
           </>
         )}

@@ -1,4 +1,12 @@
-import { attributes, decode, imageUrl, priceNumber } from "./html";
+import {
+  attributes,
+  decode,
+  imageUrl,
+  priceNumber,
+  jsonScripts,
+  object,
+  array,
+} from "./html";
 import type { ProductResult } from "./generic";
 import { ProductLookupError } from "../errors";
 
@@ -52,7 +60,7 @@ function amount(value: string): number | null {
 export function parseAmazon(html: string, url: string): ProductResult | null {
   const asin = amazonAsin(url);
   if (!asin) return null;
-  const name = text(byId(html, "productTitle"));
+  let name = text(byId(html, "productTitle"));
   if (!name) return null;
   const selected = [...html.matchAll(/<input\b[^>]*>/gi)]
     .map((m) => attributes(m[0]))
@@ -63,6 +71,7 @@ export function parseAmazon(html: string, url: string): ProductResult | null {
       "Amazon returned a different product variant. Please open the selected variant and copy its product link.",
     );
   let price: number | null = null;
+  let source = "Amazon selected product price";
   // Scope to Amazon's main price panels. Never read recommendations, list
   // prices, savings, instalments, coupons or other sellers' offers.
   for (const id of [
@@ -97,7 +106,48 @@ export function parseAmazon(html: string, url: string): ProductResult | null {
       price = amount(byId(html, id));
       if (price !== null) break;
     }
+  if (price === null) {
+    const newOffers = element(html, (a) => {
+      if (a.id !== "aod-ingress-link" || !a.href) return false;
+      try {
+        const link = new URL(a.href, url);
+        return (
+          link.hostname === new URL(url).hostname &&
+          link.pathname.includes(`/offer-listing/${asin}/`) &&
+          link.searchParams.get("condition") === "NEW"
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (/\bNew\s*\(\d+\)\s*from\b/i.test(text(newOffers))) {
+      price = amount(
+        element(newOffers, (a) =>
+          /(?:^|\s)a-offscreen(?:\s|$)/.test(a.class || ""),
+        ),
+      );
+      source = "Amazon new seller starting price (delivery at store)";
+    }
+  }
   if (price === null) return null;
+  // Keep the selected colour/size in the imported identity. Other swatches
+  // may contain cheaper prices and must not become the tracked variant.
+  for (const script of jsonScripts(html, "a-state")) {
+    const dimensions = object(object(script).sortedDimValuesForAllDims);
+    for (const values of Object.values(dimensions)) {
+      const selectedVariant = array(values)
+        .map(object)
+        .find(
+          (v) => v.dimensionValueState === "SELECTED" && v.defaultAsin === asin,
+        );
+      const label = selectedVariant?.dimensionValueDisplayText;
+      if (
+        typeof label === "string" &&
+        !name.toLowerCase().includes(label.toLowerCase())
+      )
+        name += ` · ${label}`;
+    }
+  }
   const stock = text(byId(html, "availability"));
   const image = [...html.matchAll(/<img\b[^>]*>/gi)]
     .map((m) => attributes(m[0]))
@@ -113,7 +163,7 @@ export function parseAmazon(html: string, url: string): ProductResult | null {
       : /in stock|only \d+ left in stock/i.test(stock)
         ? "In stock"
         : "Unknown",
-    source: "Amazon selected product price",
+    source,
   };
 }
 
