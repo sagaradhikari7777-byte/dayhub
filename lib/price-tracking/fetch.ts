@@ -49,10 +49,24 @@ export async function safeFetchDocument(
     u.hostname === "localhost" ||
     isIP(u.hostname.replace(/[\[\]]/g, ""))
   )
-    throw new Error("Please use a public HTTPS store URL.");
-  const addresses = await lookup(u.hostname, { all: true });
+    throw new ProductLookupError(
+      "invalid_store_url",
+      "Please use a public HTTPS store URL.",
+    );
+  let addresses: LookupAddress[];
+  try {
+    addresses = await lookup(u.hostname, { all: true });
+  } catch {
+    throw new ProductLookupError(
+      "store_dns_failed",
+      "The store link could not be resolved. Try again or copy the full product-page link.",
+    );
+  }
   if (!addresses.length || addresses.some((a) => !publicAddress(a.address)))
-    throw new Error("This address is not a public store.");
+    throw new ProductLookupError(
+      "store_address_rejected",
+      "This store link does not resolve to a public address. Please use the full product-page link.",
+    );
   // Prefer IPv4: some serverless regions resolve IPv6 but cannot route it.
   const ip = addresses.find((a) => a.family === 4) || addresses[0];
   return new Promise((resolve, reject) => {
@@ -117,7 +131,12 @@ export async function safeFetchDocument(
         }
         if (!/text\/html|xhtml/.test(res.headers["content-type"] || "")) {
           res.resume();
-          reject(new Error("The link is not a product page."));
+          reject(
+            new ProductLookupError(
+              "store_content_unreadable",
+              "The store did not return a readable product page. Please use the full product-page link.",
+            ),
+          );
           return;
         }
         let size = 0;
