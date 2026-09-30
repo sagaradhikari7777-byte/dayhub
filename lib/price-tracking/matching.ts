@@ -25,6 +25,7 @@ const parts = [
   /\b(cases?|covers?|umbris|coque|housse|funda|etui|protector)\b/,
   /\b(filters?|hepa|post motor|pre motor)\b/,
   /\b(dustbins?|dust bins?|bin assembly|canister)\b/,
+  /\b(main body|housing|chassis|motor assembly|body assembly|circuit board|pcb|trigger|switch|gasket|seal|mounting bracket)\b/,
   /\b(brush(?:es)?|brushbar|roller|motorhead|floor head|cleaner head|combination tool|crevice tool|hair screw tool|nozzle|attachment|wand|hose)\b/,
   /\b(batter(?:y|ies)|charger|charging dock|power supply)\b/,
   /\b(ear tips|earpads|strap|adapter|cable)\b/,
@@ -55,6 +56,24 @@ export function assessProduct(query: string, title: string): MatchAssessment {
   const primary = (s: string) => s.split(/\b(?:with|includes|including)\b/)[0];
   const qp = primary(q),
     tp = primary(t);
+  // Unknown parts often advertise compatibility as '... for <brand/model>'.
+  // Detect that relationship instead of relying only on a list of part names.
+  const compatibleWith = tp
+    .split(/\bfor\b/)
+    .slice(1)
+    .join(" ");
+  const targetIdentity = words(qp).filter(
+    (x) => !stop.has(x) && !descriptors.has(x),
+  );
+  if (
+    !/\bfor\b/.test(qp) &&
+    targetIdentity.length >= 2 &&
+    targetIdentity.every((x) => words(compatibleWith).includes(x))
+  )
+    return result(
+      "different",
+      "Compatible item for this product, not the product itself",
+    );
   if (
     parts.some((re) => re.test(tp) !== re.test(qp)) ||
     (partIntent.test(tp) && !partIntent.test(qp))

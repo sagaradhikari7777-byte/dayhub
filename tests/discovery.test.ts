@@ -177,6 +177,8 @@ test("live-result regressions: foreign storefronts and accessories cannot win co
 });
 
 const dysonParts = [
+  "Main Body Assembly Housing For Dyson V8 Vacuum Cleaner Central Chassis Structure With Motor And Component Mounting",
+  "Turbo gizmo for Dyson V8",
   "Dyson Sv55 Filter V8 Cyclone Sv55-a Replaces Black Rear Motor Hepa",
   "Hepa filter for Dyson V7 and V8 cordless stick Vacuum cleaners",
   "Dustbin Spare Part for Dyson V8 V7 SV11 SV10 Series Vacuum Cleaners",
