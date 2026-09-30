@@ -318,7 +318,7 @@ test("only accessory search hits produce an honest empty comparison", async () =
       })),
     };
   });
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   assert.deepEqual(result.suggestions, []);
 });
 
@@ -482,4 +482,82 @@ test("incomplete sizes remain unverified while explicit conflicts are rejected",
     matchProduct("Apple AirPods Pro 3", "Apple AirPods Pro"),
     "different",
   );
+});
+
+test("skins-only search retries once and discovers the actual product", async () => {
+  const calls: Record<string, string>[] = [];
+  const good = {
+    title: "Apple AirPods Pro Gen 3",
+    source: "Shop",
+    price: "A$329",
+    extracted_price: 329,
+    link: "https://shop.example/airpods",
+    immersive_product_page_token: "correct",
+  };
+  const result = await collectStoreOffers(
+    "Apple AirPods Pro 3",
+    async (params) => {
+      calls.push(params);
+      if (calls.length === 1)
+        return {
+          shopping_results: [
+            {
+              ...good,
+              title: "Buy Apple AirPods Pro Gen 3 Skins & Wraps",
+              price: "A$11.45",
+              extracted_price: 11.45,
+            },
+          ],
+        };
+      if (params.engine === "google_shopping")
+        return { shopping_results: [good] };
+      return { product_results: { stores: [{ ...good, name: "Shop" }] } };
+    },
+  );
+  assert.equal(calls[1].q, '"apple airpods pro 3"');
+  assert.equal(calls.length, 3);
+  assert.equal(result.suggestions.length, 1);
+  assert.equal(result.suggestions[0].price, 329);
+  assert.equal(result.suggestions[0].match, "likely");
+});
+
+test("categorized shopping results discover real sellers instead of top-level accessories", async () => {
+  const calls: Record<string, string>[] = [];
+  const good = {
+    title: query,
+    source: "AU Shop",
+    price: "A$329",
+    extracted_price: 329,
+    link: "https://shop.example/airpods",
+    immersive_product_page_token: "real-product",
+  };
+  const result = await collectStoreOffers(query, async (params) => {
+    calls.push(params);
+    if (params.engine === "google_shopping")
+      return {
+        shopping_results: [
+          {
+            ...good,
+            title: "Apple AirPods Pro 3 Skins & Wraps",
+            price: "A$11.45",
+            extracted_price: 11.45,
+          },
+        ],
+        categorized_shopping_results: [
+          { title: "AirPods", shopping_results: [good] },
+        ],
+        inline_shopping_results: [{ ...good, source: "Another AU store" }],
+      };
+    assert.equal(params.page_token, "real-product");
+    return { product_results: { stores: [{ ...good, name: "AU Shop" }] } };
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].location, "Australia");
+  assert.equal(calls[0].google_domain, "google.com.au");
+  assert.equal(
+    result.suggestions.some((s) => /Skins/.test(s.title)),
+    false,
+  );
+  assert.equal(result.suggestions.length, 2);
+  assert.equal(result.suggestions[0].match, "likely");
 });

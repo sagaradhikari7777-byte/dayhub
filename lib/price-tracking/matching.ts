@@ -10,6 +10,7 @@ export const normalizeProductName = (s: string) =>
     .replace(/ray[\s-]*ban/g, "rayban")
     .replace(/\bpolarized\b/g, "polarised")
     .replace(/\bgray\b/g, "grey")
+    .replace(/\b(?:gen(?:eration)?)\s+(?=\d)/g, "")
     .replace(/eau de parfum/g, "edp")
     .replace(/eau de toilette/g, "edt")
     .replace(/(\d)\s+(ml|gb|tb|mm|cm|inch|oz|g|kg)\b/g, "$1$2")
@@ -25,7 +26,7 @@ const qualifiers =
   /\b(pro|max|plus|ultra|mini|lite|extreme|intense|elixir|edp|edt|parfum|absolute|animal|origin|detect|complete|advanced|slim|extra|total clean|cyclone|polarised|polarized)\b/g;
 // Separate types: tracking a filter cannot match a dustbin or the appliance.
 const parts = [
-  /\b(cases?|covers?|umbris|coque|housse|funda|etui|protector)\b/,
+  /\b(cases?|covers?|skins?|wraps?|decals?|stickers?|umbris|coque|housse|funda|etui|protector)\b/,
   /\b(filters?|hepa|post motor|pre motor)\b/,
   /\b(dustbins?|dust bins?|bin assembly|canister)\b/,
   /\b(main body|housing|chassis|motor assembly|body assembly|circuit board|pcb|trigger|switch|gasket|seal|mounting bracket)\b/,

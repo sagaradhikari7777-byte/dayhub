@@ -23,9 +23,18 @@ export type StoreSuggestion = {
 export function discoveryConfigured() {
   return Boolean(process.env.SERPAPI_API_KEY && redisConfigured());
 }
+export function shoppingRows(data: unknown): Record<string, unknown>[] {
+  const root = object(data);
+  return [
+    ...array(root.shopping_results),
+    ...array(root.inline_shopping_results),
+    ...array(root.categorized_shopping_results).flatMap((category) =>
+      array(object(category).shopping_results),
+    ),
+  ].map(object);
+}
 export function parseSuggestions(data: unknown): StoreSuggestion[] {
-  const rows = (data as { shopping_results?: unknown[] })?.shopping_results;
-  if (!Array.isArray(rows)) return [];
+  const rows = shoppingRows(data);
   const seen = new Set<string>();
   return rows
     .flatMap((value) => {
@@ -88,7 +97,7 @@ export function parseSuggestions(data: unknown): StoreSuggestion[] {
       ];
     })
     .sort((a, b) => a.price - b.price)
-    .slice(0, 20);
+    .slice(0, 100);
 }
 
 export type DiscoveryResult = {
@@ -166,6 +175,8 @@ export async function collectStoreOffers(
       engine: "google_shopping",
       q,
       gl: "au",
+      google_domain: "google.com.au",
+      location: "Australia",
       hl: "en",
       ...(refresh ? { no_cache: "true" } : {}),
     });
@@ -189,12 +200,11 @@ export async function collectStoreOffers(
   );
   let warning: string | undefined;
   const compact = comparisonSearchQuery(query);
-  if (
-    !suggestions.some((s) => s.match !== "different") &&
-    compact !== query.toLowerCase().trim()
-  ) {
+  const retryQuery =
+    compact === query.toLowerCase().trim() ? `"${compact}"` : compact;
+  if (!suggestions.some((s) => s.match !== "different")) {
     try {
-      const fallback = await search(compact);
+      const fallback = await search(retryQuery);
       suggestions = parseSuggestions(fallback).map((s) => classify(s, false));
       raw = fallback;
     } catch {
@@ -202,7 +212,7 @@ export async function collectStoreOffers(
         "The additional store search could not finish. Try refreshing later.";
     }
   }
-  const candidates = array(object(raw).shopping_results).map(object);
+  const candidates = shoppingRows(raw);
   const chosen = candidates.find(
     (row) =>
       typeof row.title === "string" &&
@@ -304,7 +314,7 @@ export async function discoverStores(
       "discovery_not_configured",
       "Automatic comparison is not connected yet. Your product is saved; there is no need to add other store links.",
     );
-  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v5:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
+  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v6:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
   const existing = inFlight.get(cacheKey);
   if (existing) return existing;
   const work = (async () => {
