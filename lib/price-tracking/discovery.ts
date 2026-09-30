@@ -252,10 +252,10 @@ export async function collectStoreOffers(
 }
 
 async function providerRequest(params: Record<string, string>) {
-  const daily = Number(process.env.COMPARISON_DAILY_LIMIT || 10);
+  const daily = Number(process.env.COMPARISON_DAILY_LIMIT || 30);
   const limit = Number.isInteger(daily)
     ? Math.max(1, Math.min(100, daily))
-    : 10;
+    : 30;
   const counterKey = `dayhub:v1:{dayhub-v1}:shopping-budget:${new Date().toISOString().slice(0, 10)}`;
   const accepted = await redisCommand([
     "EVAL",
