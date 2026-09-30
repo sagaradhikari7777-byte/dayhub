@@ -5,6 +5,7 @@ import {
   collectStoreOffers,
   parseStores,
   revalidateOffers,
+  comparisonCachePolicy,
 } from "../lib/price-tracking/discovery";
 
 test("matching excludes accessories, wrong generation, perfume size and condition", () => {
@@ -345,5 +346,140 @@ test("cached offers are rechecked after matcher changes without provider calls",
       ["Dyson V8 Cordless Vacuum Cleaner", "likely"],
       ["Dyson V8 UnknownEdition", "possible"],
     ],
+  );
+});
+
+test("equivalent retailer spelling matches without accepting different variants", () => {
+  assert.equal(
+    matchProduct(
+      "Ray-Ban Justin Polarised 55 mm Havana Dark Grey",
+      "RayBan Justin Polarized 55mm Havana Dark Gray",
+    ),
+    "likely",
+  );
+  assert.equal(
+    matchProduct(
+      "Ray Ban Justin Polarised 55mm Havana",
+      "RayBan Justin Polarized 54mm Havana",
+    ),
+    "different",
+  );
+  assert.equal(
+    matchProduct(
+      "Ray-Ban Justin Polarised 55mm Havana",
+      "RayBan Wayfarer Polarized 55mm Havana",
+    ),
+    "different",
+  );
+  assert.equal(
+    matchProduct(
+      "Ray-Ban Justin Polarised",
+      "Case for RayBan Justin Polarized",
+    ),
+    "different",
+  );
+});
+
+test("empty verbose searches retry compact identity and retain strict matching", async () => {
+  const calls: Record<string, string>[] = [];
+  const title = "Ray-Ban Justin Polarised Sunglasses 55 mm Havana Dark Grey";
+  const result = await collectStoreOffers(
+    title,
+    async (params) => {
+      calls.push(params);
+      if (calls.length === 1) return { shopping_results: [] };
+      if (params.engine === "google_shopping")
+        return {
+          shopping_results: [
+            {
+              title: "RayBan Justin Polarized 55mm Havana Dark Gray",
+              source: "Store",
+              price: "A$176",
+              extracted_price: 176,
+              link: "https://store.example/justin",
+              immersive_product_page_token: "justin",
+            },
+          ],
+        };
+      return {
+        product_results: {
+          stores: [
+            {
+              title: "RayBan Justin Polarized 55mm Havana Dark Gray",
+              name: "Store",
+              price: "A$176",
+              extracted_price: 176,
+              link: "https://store.example/justin",
+            },
+            {
+              title: "RayBan Justin Polarized 54mm Havana Dark Gray",
+              name: "Wrong size",
+              price: "A$150",
+              extracted_price: 150,
+              link: "https://store.example/wrong",
+            },
+          ],
+        },
+      };
+    },
+    true,
+  );
+  assert.equal(calls.length, 3);
+  assert.equal(calls[1].q, "rayban justin polarised 55mm havana dark grey");
+  assert.ok(calls.every((p) => p.no_cache === "true"));
+  assert.equal(result.suggestions.length, 1);
+  assert.equal(result.suggestions[0].match, "likely");
+});
+
+test("refresh bypasses old empty caches while repeated taps are throttled", () => {
+  const result = { suggestions: [], searchedAt: "2026-09-30T10:00:00Z" };
+  assert.equal(
+    comparisonCachePolicy(result, false, Date.parse("2026-09-30T11:00:00Z"))
+      .reuse,
+    true,
+  );
+  assert.equal(
+    comparisonCachePolicy(result, true, Date.parse("2026-09-30T11:00:00Z"))
+      .reuse,
+    false,
+  );
+  assert.equal(
+    comparisonCachePolicy(result, true, Date.parse("2026-09-30T10:00:30Z"))
+      .reuse,
+    true,
+  );
+  assert.equal(comparisonCachePolicy(result, false).ttl, 300);
+  assert.equal(
+    comparisonCachePolicy(
+      { ...result, suggestions: [{ title: "Product" } as never] },
+      false,
+    ).ttl,
+    21600,
+  );
+});
+
+test("incomplete sizes remain unverified while explicit conflicts are rejected", () => {
+  assert.equal(
+    matchProduct(
+      "Ray-Ban Justin Polarised 55mm Havana",
+      "RayBan Justin Havana Sunglasses",
+    ),
+    "possible",
+  );
+  assert.equal(
+    matchProduct("Tom Ford Noir EDP 50ml", "Tom Ford Noir EDP"),
+    "possible",
+  );
+  assert.equal(
+    matchProduct("Tom Ford Noir EDP 50ml", "Tom Ford Noir EDP 100ml"),
+    "different",
+  );
+  assert.equal(
+    matchProduct("Apple iPhone 17 256GB", "Apple iPhone 17"),
+    "possible",
+  );
+  assert.equal(
+    matchProduct("Apple AirPods Pro 3", "Apple AirPods Pro"),
+    "different",
   );
 });

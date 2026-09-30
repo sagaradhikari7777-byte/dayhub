@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { redisCommand, redisConfigured } from "@/lib/db/redis";
 import { ProductLookupError } from "./errors";
-import { assessProduct, matchProduct, type Match } from "./matching";
+import {
+  assessProduct,
+  matchProduct,
+  type Match,
+  comparisonSearchQuery,
+} from "./matching";
 import { object, array, availability } from "./retailers/html";
 export type StoreSuggestion = {
   title: string;
@@ -154,13 +159,17 @@ export function parseStores(data: unknown): StoreSuggestion[] {
 export async function collectStoreOffers(
   query: string,
   provider: Provider,
+  refresh = false,
 ): Promise<DiscoveryResult> {
-  const raw = await provider({
-    engine: "google_shopping",
-    q: query,
-    gl: "au",
-    hl: "en",
-  });
+  const search = (q: string) =>
+    provider({
+      engine: "google_shopping",
+      q,
+      gl: "au",
+      hl: "en",
+      ...(refresh ? { no_cache: "true" } : {}),
+    });
+  let raw = await search(query);
   const classify = (s: StoreSuggestion, expanded: boolean): StoreSuggestion => {
     const condition =
       s.condition === "Condition not confirmed" ? "" : s.condition;
@@ -178,6 +187,21 @@ export async function collectStoreOffers(
   let suggestions: StoreSuggestion[] = parseSuggestions(raw).map((s) =>
     classify(s, false),
   );
+  let warning: string | undefined;
+  const compact = comparisonSearchQuery(query);
+  if (
+    !suggestions.some((s) => s.match !== "different") &&
+    compact !== query.toLowerCase().trim()
+  ) {
+    try {
+      const fallback = await search(compact);
+      suggestions = parseSuggestions(fallback).map((s) => classify(s, false));
+      raw = fallback;
+    } catch {
+      warning =
+        "The additional store search could not finish. Try refreshing later.";
+    }
+  }
   const candidates = array(object(raw).shopping_results).map(object);
   const chosen = candidates.find(
     (row) =>
@@ -186,13 +210,13 @@ export async function collectStoreOffers(
         "likely" &&
       typeof row.immersive_product_page_token === "string",
   );
-  let warning: string | undefined;
   if (chosen) {
     try {
       const details = await provider({
         engine: "google_immersive_product",
         page_token: String(chosen.immersive_product_page_token),
         more_stores: "true",
+        ...(refresh ? { no_cache: "true" } : {}),
       });
       suggestions = [
         ...parseStores(details).map((s) => classify(s, true)),
@@ -259,27 +283,46 @@ async function providerRequest(params: Record<string, string>) {
   return raw;
 }
 const inFlight = new Map<string, Promise<DiscoveryResult>>();
-export async function discoverStores(query: string): Promise<DiscoveryResult> {
+export function comparisonCachePolicy(
+  result: DiscoveryResult,
+  refresh: boolean,
+  now = Date.now(),
+) {
+  const age = now - Date.parse(result.searchedAt);
+  return {
+    reuse: !refresh || (Number.isFinite(age) && age >= 0 && age < 60000),
+    ttl: result.warning || result.suggestions.length === 0 ? 300 : 21600,
+  };
+}
+export async function discoverStores(
+  query: string,
+  refresh = false,
+): Promise<DiscoveryResult> {
   query = query.normalize("NFKC").replace(/\s+/g, " ").trim();
   if (!discoveryConfigured())
     throw new ProductLookupError(
       "discovery_not_configured",
       "Automatic comparison is not connected yet. Your product is saved; there is no need to add other store links.",
     );
-  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v4:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
+  const cacheKey = `dayhub:v1:{dayhub-v1}:shopping:v5:${createHash("sha256").update(query.toLowerCase()).digest("hex")}`;
   const existing = inFlight.get(cacheKey);
   if (existing) return existing;
   const work = (async () => {
     const cached = await redisCommand(["GET", cacheKey]);
-    if (typeof cached === "string")
-      return revalidateOffers(query, JSON.parse(cached) as DiscoveryResult);
-    const result = await collectStoreOffers(query, providerRequest);
+    if (typeof cached === "string") {
+      const previous = revalidateOffers(
+        query,
+        JSON.parse(cached) as DiscoveryResult,
+      );
+      if (comparisonCachePolicy(previous, refresh).reuse) return previous;
+    }
+    const result = await collectStoreOffers(query, providerRequest, refresh);
     await redisCommand([
       "SET",
       cacheKey,
       JSON.stringify(result),
       "EX",
-      result.warning ? 900 : 21600,
+      comparisonCachePolicy(result, false).ttl,
     ]);
     return result;
   })();

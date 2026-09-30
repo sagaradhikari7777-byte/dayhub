@@ -18,7 +18,10 @@ export async function POST(req: Request) {
   try {
     sameOrigin(req);
     const body = z
-      .object({ productId: z.string().uuid() })
+      .object({
+        productId: z.string().uuid(),
+        refresh: z.boolean().default(false),
+      })
       .safeParse(await req.json());
     if (!body.success)
       return NextResponse.json(
@@ -44,7 +47,9 @@ export async function POST(req: Request) {
         },
         { status: 422 },
       );
-    return NextResponse.json(await discoverStores(product.title.slice(0, 200)));
+    return NextResponse.json(
+      await discoverStores(product.title.slice(0, 200), body.data.refresh),
+    );
   } catch (error) {
     return NextResponse.json(
       {

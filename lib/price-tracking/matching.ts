@@ -2,11 +2,14 @@
 // every word of an appliance's name and still be a different product.
 export type Match = "likely" | "possible" | "different";
 export type MatchAssessment = { match: Match; reason: string };
-const normalize = (s: string) =>
+export const normalizeProductName = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ray[\s-]*ban/g, "rayban")
+    .replace(/\bpolarized\b/g, "polarised")
+    .replace(/\bgray\b/g, "grey")
     .replace(/eau de parfum/g, "edp")
     .replace(/eau de toilette/g, "edt")
     .replace(/(\d)\s+(ml|gb|tb|mm|cm|inch|oz|g|kg)\b/g, "$1$2")
@@ -36,7 +39,7 @@ const partIntent =
 const stop = new Set(["with", "and", "the", "for", "a", "of", "in"]);
 const descriptors = new Set(
   words(
-    "wireless bluetooth headphones earphones earbuds noise cancelling canceling cordless stick vacuum cleaner bagless upright robot sunglasses perfume fragrance spray smartphone phone unlocked new original genuine official australian australia au stock online retail packaging white black silver blue red green pink gold purple brown beige orange yellow grey gray",
+    "men mens women womens unisex adult adults wireless bluetooth headphones earphones earbuds noise cancelling canceling cordless stick vacuum cleaner bagless upright robot sunglasses perfume fragrance spray smartphone phone unlocked new original genuine official australian australia au stock online retail packaging white black silver blue red green pink gold purple brown beige orange yellow grey gray",
   ),
 );
 const tokens = (s: string, re: RegExp) => [...s.matchAll(re)].map((x) => x[0]);
@@ -46,8 +49,8 @@ const result = (match: Match, reason: string): MatchAssessment => ({
 });
 
 export function assessProduct(query: string, title: string): MatchAssessment {
-  const q = normalize(query),
-    t = normalize(title);
+  const q = normalizeProductName(query),
+    t = normalizeProductName(title);
   if (!q || !t) return result("different", "Missing product identity");
   if (conditions.test(t) !== conditions.test(q))
     return result("different", "Different item condition");
@@ -92,12 +95,19 @@ export function assessProduct(query: string, title: string): MatchAssessment {
     );
   const qq = tokens(q, qualifiers),
     tq = tokens(t, qualifiers);
-  if (qq.some((x) => !tq.includes(x)) || tq.some((x) => !qq.includes(x)))
+  const missingPolarisation =
+    qq.includes("polarised") && !tq.includes("polarised");
+  if (
+    qq.some((x) => x !== "polarised" && !tq.includes(x)) ||
+    tq.some((x) => !qq.includes(x))
+  )
     return result("different", "Different model edition or formulation");
   const qt = words(q),
     tt = new Set(words(t));
   const ids = qt.filter((x) => /\d/.test(x));
-  if (ids.some((x) => !tt.has(x)))
+  const unitPattern = /^\d+(?:\.\d+)?(ml|gb|tb|mm|cm|inch|oz|g|kg)$/;
+  const missingSizes = ids.filter((x) => unitPattern.test(x) && !tt.has(x));
+  if (ids.some((x) => !unitPattern.test(x) && !tt.has(x)))
     return result("different", "Model number, size or capacity does not match");
   for (const id of ids) {
     const family = id.match(/^([a-z]+)\d/);
@@ -126,13 +136,23 @@ export function assessProduct(query: string, title: string): MatchAssessment {
   )
     return result("different", "Different colour");
   const meaningful = qt.filter((x) => !stop.has(x));
-  const identity = meaningful.filter((x) => !descriptors.has(x));
+  const identity = meaningful.filter(
+    (x) =>
+      !descriptors.has(x) &&
+      !missingSizes.includes(x) &&
+      !(missingPolarisation && x === "polarised"),
+  );
   if (identity.length < 2)
     return result("possible", "Product name is too broad to confirm the model");
   if (identity.some((x) => !tt.has(x)))
     return result("different", "Brand or product identity does not match");
   if (/[^\p{Script=Latin}\p{N}\p{P}\p{Z}\p{S}\s]/u.test(title))
     return result("possible", "Listing details could not be fully matched");
+  if (missingSizes.length || missingPolarisation)
+    return result(
+      "possible",
+      "Size or lens variant is not specified by this store",
+    );
   if (qc.some((x) => !tc.includes(x)))
     return result("possible", "Colour is not specified by this store");
   const extra = words(tp).filter(
@@ -150,4 +170,21 @@ export function assessProduct(query: string, title: string): MatchAssessment {
 }
 export function matchProduct(query: string, title: string): Match {
   return assessProduct(query, title).match;
+}
+
+// Search fewer marketing words, but never remove the model, edition, colour
+// or size. Results are still assessed against the full original product name.
+export function comparisonSearchQuery(title: string): string {
+  const normalized = normalizeProductName(title);
+  const compact = words(normalized)
+    .filter(
+      (word) =>
+        !stop.has(word) &&
+        (!descriptors.has(word) ||
+          /^(black|white|silver|blue|red|green|pink|gold|purple|brown|beige|orange|yellow|grey)$/.test(
+            word,
+          )),
+    )
+    .join(" ");
+  return compact.split(" ").length >= 2 ? compact : normalized;
 }

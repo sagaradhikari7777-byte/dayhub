@@ -65,7 +65,7 @@ export function StoreComparison({
         const response = await fetch("/api/products/compare", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId: product.id }),
+          body: JSON.stringify({ productId: product.id, refresh: attempt > 0 }),
           signal,
         });
         const data = await response.json();
@@ -171,13 +171,12 @@ export function StoreComparison({
           <>
             <p className="hint">
               {offers.length} offers found · Updated{" "}
-              {new Date(current.data.searchedAt).toLocaleString()}. Results are
-              cached for up to 6 hours.
+              {new Date(current.data.searchedAt).toLocaleString()}. Refresh
+              searches again after one minute.
             </p>
             <p className="hint">
-              Prices from Google Shopping via SerpApi. Delivery and checkout
-              discounts are not included. Confirm the model and variant at the
-              store.
+              Delivery and checkout discounts may vary. Confirm the variant at
+              the store.
             </p>
             {current.data.warning && (
               <p className="info">{current.data.warning}</p>
@@ -205,10 +204,9 @@ export function StoreComparison({
             )}
             {!likely.length && (
               <p className="info">
-                No confident same-model comparison is available yet. DayHub
-                excludes detected accessories, replacement parts and different
-                variants. Include the model, size and colour in the product name
-                for more accurate results.
+                {possible.length
+                  ? "Listings found, but the exact variant is not confirmed. Review unverified listings below."
+                  : "No matching offers found. Refresh to search again, or check the product’s model and variant."}
               </p>
             )}
           </>
