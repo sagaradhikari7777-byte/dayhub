@@ -245,7 +245,7 @@
   line-height: 1.5;
 }
 .home-dashboard .home-quiet {
-  margin-top: 12px;
+  margin-top: 0;
 }
 .home-dashboard .home-quiet h2 {
   font-size: 13px;
@@ -254,7 +254,7 @@
 }
 .home-quiet-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px 12px;
 }
 .home-quiet-grid button {
@@ -339,7 +339,7 @@
     margin-bottom: 10px;
   }
   .home-dashboard .home-quiet {
-    margin-top: 10px;
+    margin-top: 0;
   }
 }
 @media (max-width: 360px) {
@@ -353,4 +353,9 @@
   .home-quiet-grid {
     gap: 4px 9px;
   }
+}
+
+.home-dashboard .task-row .row-main {
+  min-height: 44px;
+  justify-content: center;
 }

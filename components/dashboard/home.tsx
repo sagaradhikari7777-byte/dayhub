@@ -411,28 +411,28 @@ export function Home({
             {widgets[w]}
           </div>
         ))}
+        {quiet.length > 0 && (
+          <GlassCard className="home-quiet">
+            <h2>All clear</h2>
+            <div className="home-quiet-grid">
+              {quiet.map((w) => {
+                const section = quietSections[w],
+                  Icon = section.icon;
+                return (
+                  <button key={w} onClick={() => navigate(section.route)}>
+                    <Icon size={17} aria-hidden="true" />
+                    <span>
+                      <strong>{section.title}</strong>
+                      <small>{section.status}</small>
+                    </span>
+                    <ChevronRight size={14} aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          </GlassCard>
+        )}
       </div>
-      {quiet.length > 0 && (
-        <GlassCard className="home-quiet">
-          <h2>All clear</h2>
-          <div className="home-quiet-grid">
-            {quiet.map((w) => {
-              const section = quietSections[w],
-                Icon = section.icon;
-              return (
-                <button key={w} onClick={() => navigate(section.route)}>
-                  <Icon size={17} aria-hidden="true" />
-                  <span>
-                    <strong>{section.title}</strong>
-                    <small>{section.status}</small>
-                  </span>
-                  <ChevronRight size={14} aria-hidden="true" />
-                </button>
-              );
-            })}
-          </div>
-        </GlassCard>
-      )}
       <button className="customize" onClick={() => navigate("widgets")}>
         <SlidersHorizontal size={16} />
         Edit Home
