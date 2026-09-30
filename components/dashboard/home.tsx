@@ -89,10 +89,11 @@ export function Home({
   );
   const overdue = bills.filter((e) => e.date && e.date < today);
   const attention =
-    overdue.length +
+    bills.filter((e) => e.date && e.date <= today).length +
     tasks.filter((e) => e.priority === "High" || (e.date && e.date < today))
       .length +
-    products.filter((e) => priceFacts(e).target).length;
+    products.filter((e) => priceFacts(e).target).length +
+    drops.filter((e) => !priceFacts(e).target).length;
   const hour = new Date().getHours();
   const nowTime = new Date().toTimeString().slice(0, 5);
   const upcomingEvents = events.filter(
@@ -100,12 +101,15 @@ export function Home({
   );
   const soon = upcomingEvents.find((e) => occurs(e, today) && e.time);
   const arriving = deliveries.find((e) => e.date === today);
+  const dueBill = bills.find((e) => e.date === today);
   const target = drops.find((e) => priceFacts(e).target);
   const focus =
     overdue[0] ||
     soon ||
+    dueBill ||
     arriving ||
     target ||
+    drops[0] ||
     tasks[0] ||
     upcomingEvents[0] ||
     bills[0];
@@ -118,10 +122,14 @@ export function Home({
         : focus.kind === "deliveries"
           ? "Arriving today"
           : focus.kind === "products"
-            ? "Target reached"
+            ? priceFacts(focus).target
+              ? "Target reached"
+              : "Price dropped"
             : focus.kind === "tasks"
               ? "On your list"
-              : "Coming up";
+              : focus.date === today
+                ? "Due today"
+                : "Coming up";
   const focusValue =
     focus?.kind === "events" && focus.time
       ? formatTime(focus.time, settings)
@@ -295,7 +303,7 @@ export function Home({
         <div className="price-watch-sub">
           <span className="badge teal">
             {drops.length
-              ? `${drops.length} price drops today`
+              ? `${drops.length} price drop${drops.length === 1 ? "" : "s"} today`
               : "Your price watch"}
           </span>
         </div>
@@ -465,7 +473,13 @@ export function Home({
               <strong>{value}</strong>
               <small>
                 <Icon size={12} />
-                {label}
+                {route === "deliveries"
+                  ? value === 1
+                    ? "delivery"
+                    : "deliveries"
+                  : value === 1
+                    ? label.replace(/s$/, "")
+                    : label}
               </small>
             </button>
           ))}
