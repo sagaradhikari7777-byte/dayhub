@@ -1,4 +1,5 @@
 "use client";
+import { useRef, useState } from "react";
 import { Entry } from "@/types";
 import { useStore } from "@/lib/store";
 import {
@@ -30,20 +31,21 @@ export function TaskRow({
   open: () => void;
 }) {
   const { save, settings } = useStore();
-  let start = 0;
+  const start = useRef(0);
   return (
     <div
       className={`task-row ${e.completed ? "completed" : ""}`}
       onTouchStart={(v) => {
-        start = v.touches[0].clientX;
+        start.current = v.touches[0].clientX;
       }}
       onTouchEnd={(v) => {
-        if (v.changedTouches[0].clientX - start > 90)
+        if (v.changedTouches[0].clientX - start.current > 90)
           void save({ ...e, completed: true });
       }}
     >
       <button
         aria-label={`${e.completed ? "Reopen" : "Complete"} ${e.title}`}
+        aria-pressed={!!e.completed}
         className={`task-check ${e.completed ? "checked" : ""}`}
         onClick={() => void save({ ...e, completed: !e.completed })}
       >
@@ -52,7 +54,7 @@ export function TaskRow({
       <button className="row-main" onClick={open}>
         <strong>{e.title}</strong>
         <small>
-          {e.time ? `${e.time} · ` : ""}
+          {e.time ? `${formatTime(e.time, settings)} · ` : ""}
           {e.category || relativeDate(e.date, settings)}
         </small>
       </button>
@@ -156,17 +158,16 @@ export function DeliveryCard({
   );
 }
 export function ProductImage({ entry: e }: { entry: Entry }) {
+  const [failedImage, setFailedImage] = useState("");
   return (
     <span className="product-image">
-      {e.image ? (
+      {e.image && failedImage !== e.image ? (
         <img
           src={e.image}
           alt={e.title}
           loading="lazy"
           referrerPolicy="no-referrer"
-          onError={(v) => {
-            v.currentTarget.style.display = "none";
-          }}
+          onError={() => setFailedImage(e.image || "")}
         />
       ) : e.title.toLowerCase().includes("sony") ? (
         <Headphones />
@@ -206,13 +207,30 @@ export function PriceCard({
             </span>
           )}
         </span>
+        {!compact &&
+          e.targetPrice !== undefined &&
+          e.targetPrice > 0 &&
+          e.status !== "Purchased" && (
+            <span
+              className="target-progress"
+              aria-label={`Target price ${money(e.targetPrice, settings.currency)}`}
+            >
+              <span
+                style={{
+                  width: `${Math.min(100, e.price ? (e.targetPrice / e.price) * 100 : 0)}%`,
+                }}
+              />
+            </span>
+          )}
         {!compact && (
           <span className="target-line">
             {e.status === "Purchased"
               ? "Purchased"
               : f.target
                 ? "✓ Target reached"
-                : `Target ${money(e.targetPrice, settings.currency)}`}
+                : e.targetPrice && e.targetPrice > 0
+                  ? `Target ${money(e.targetPrice, settings.currency)}`
+                  : "No target set"}
             {e.availability === "Out of stock" ? " · Out of stock" : ""}
             {e.checkStatus === "failed"
               ? " · Check needs attention"

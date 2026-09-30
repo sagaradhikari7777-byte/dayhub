@@ -34,83 +34,99 @@ import {
 import { useStore } from "@/lib/store";
 import { Kind, labels } from "@/types";
 import { PageHeader, GlassCard, RowLink, Confirm, Sheet } from "./ui";
+import { DayMark } from "./brand";
+import { ChevronRight } from "lucide-react";
 export function More({ navigate }: { navigate: (p: string) => void }) {
-  const { settings, storage, sync } = useStore();
+  const { settings, entries, sync } = useStore();
+  const modules = [
+    ["tasks", CheckCheck],
+    ["events", CalendarDays],
+    ["bills", Receipt],
+    ["expenses", Wallet],
+    ["deliveries", Package],
+    ["notes", StickyNote],
+    ["wishlists", Heart],
+  ] as const;
   return (
     <>
       <PageHeader
-        eyebrow="YOUR SPACE"
-        title="A little more DayHub"
-        detail="Make every day feel a little more like you."
+        eyebrow="MAKE YOURSELF AT HOME"
+        title="Your space"
+        detail="Everything you keep close. All in one place."
       />
-      <GlassCard>
-        <RowLink
-          icon={<User />}
-          title={settings.name}
-          detail={`${settings.currency} · ${settings.location}`}
-          onClick={() => navigate("settings")}
-        />
-      </GlassCard>
+      <button
+        className="glass profile-card"
+        onClick={() => navigate("settings")}
+      >
+        <span className="avatar">{settings.name.slice(0, 1)}</span>
+        <span className="row-main">
+          <strong>{settings.name}</strong>
+          <small>
+            {settings.currency} · {settings.location}
+          </small>
+        </span>
+        <ChevronRight size={17} />
+      </button>
       <p className="group-label">YOUR EVERYDAY</p>
-      <GlassCard>
-        {(
-          [
-            ["tasks", CheckCheck],
-            ["events", CalendarDays],
-            ["bills", Receipt],
-            ["expenses", Wallet],
-            ["deliveries", Package],
-            ["notes", StickyNote],
-            ["wishlists", Heart],
-          ] as const
-        ).map(([k, Icon]) => (
-          <RowLink
-            key={k}
-            icon={<Icon size={20} />}
-            title={labels[k]}
-            onClick={() => navigate(k)}
-          />
-        ))}
-      </GlassCard>
+      <div className="more-grid">
+        {modules.map(([kind, Icon]) => {
+          const count = entries.filter(
+            (e) =>
+              e.kind === kind &&
+              !e.archived &&
+              (kind !== "tasks" || !e.completed),
+          ).length;
+          return (
+            <button
+              className="glass more-tile"
+              key={kind}
+              onClick={() => navigate(kind)}
+            >
+              <span className="icon-tile">
+                <Icon size={19} />
+              </span>
+              <strong>{labels[kind]}</strong>
+              <small>
+                {count} {count === 1 ? "item" : "items"}
+              </small>
+            </button>
+          );
+        })}
+      </div>
       <p className="group-label">MAKE IT YOURS</p>
-      <GlassCard>
+      <GlassCard className="more-settings">
         <RowLink
-          icon={<Palette size={20} />}
+          icon={<Palette size={19} />}
           title="Profile & appearance"
+          detail="Light, dark, or a little of both"
           onClick={() => navigate("settings")}
         />
         <RowLink
-          icon={<LayoutGrid size={20} />}
+          icon={<LayoutGrid size={19} />}
           title="Home widgets"
+          detail="Choose what matters to you"
           onClick={() => navigate("widgets")}
         />
         <RowLink
-          icon={<Bell size={20} />}
+          icon={<Bell size={19} />}
           title="Notification preferences"
           onClick={() => navigate("settings")}
         />
         <RowLink
-          icon={<Download size={20} />}
+          icon={<Download size={19} />}
           title="Data, backup & privacy"
           onClick={() => navigate("data")}
         />
       </GlassCard>
       <div className="app-info">
         <span className="brand-logo small">
-          d<span>h</span>
+          <DayMark size={18} />
         </span>
-        <strong>DayHub</strong>
+        <strong>
+          DayHub<span className="brand-dot">.</span>
+        </strong>
         <p>Your day. One place.</p>
-        <small>
-          Version 1.0 ·{" "}
-          {storage === "cloud-upstash"
-            ? "Upstash connected"
-            : storage === "cloud"
-              ? "Cloud connected"
-              : "Local development server"}
-          <br />
-          {sync}
-        </small>
+        <small>{sync}</small>
       </div>
     </>
   );

@@ -28,13 +28,20 @@ export function Today({ open }: { open: (e: Entry) => void }) {
     d.setDate(d.getDate() + delta);
     setSelected(day(d));
   };
+  const weekStart = new Date(date);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
   return (
     <>
       <PageHeader
         eyebrow="EVERYTHING, IN ORDER"
         title={
           selected === day()
-            ? "Your day, together"
+            ? "Today, in order"
             : date.toLocaleDateString("en-AU", { weekday: "long" })
         }
         detail={date.toLocaleDateString("en-AU", {
@@ -67,6 +74,24 @@ export function Today({ open }: { open: (e: Entry) => void }) {
         <button className="text-button" onClick={() => setSelected(day())}>
           Today
         </button>
+      </div>
+      <div className="week-strip" aria-label="Choose a day">
+        {weekDays.map((d) => (
+          <button
+            key={day(d)}
+            className={day(d) === selected ? "active" : ""}
+            aria-pressed={day(d) === selected}
+            aria-label={d.toLocaleDateString("en-AU", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+            onClick={() => setSelected(day(d))}
+          >
+            <small>{d.toLocaleDateString("en-AU", { weekday: "short" })}</small>
+            <strong>{d.getDate()}</strong>
+          </button>
+        ))}
       </div>
       <div className="timeline">
         {list.length ? (

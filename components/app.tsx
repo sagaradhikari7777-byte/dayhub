@@ -23,6 +23,7 @@ import { Activity } from "./activity";
 import { More, Settings, Widgets, DataSettings } from "./settings";
 import { Editor, QuickAdd } from "./editor";
 import { Onboarding } from "./onboarding";
+import { DayMark, DayOrbit } from "./brand";
 import { Sheet, SkeletonCard, EmptyState } from "./ui";
 import { GenericRow } from "./rows";
 const tabs = [
@@ -134,16 +135,18 @@ function AppContent() {
           }}
         >
           <span className="brand-logo">
-            <Grid2X2 size={24} />
+            <DayMark />
           </span>
           <span>
-            DayHub<small>YOUR DAY. ONE PLACE.</small>
+            DayHub<span className="brand-dot">.</span>
+            <small>YOUR DAY. ONE PLACE.</small>
           </span>
         </a>
         <nav aria-label="Main navigation">
           {tabs.map(([id, label, Icon]) => (
             <button
               key={id}
+              aria-current={page === id ? "page" : undefined}
               className={page === id ? "active" : ""}
               onClick={() => navigate(id)}
             >
@@ -183,9 +186,9 @@ function AppContent() {
         <header className="topbar">
           <span className="mobile-brand">
             <span className="brand-logo small">
-              <Grid2X2 size={18} />
+              <DayMark size={19} />
             </span>
-            DayHub
+            DayHub<span className="brand-dot">.</span>
           </span>
           <div className="breadcrumb">
             Your personal space <span>/</span>{" "}
@@ -289,6 +292,7 @@ function AppContent() {
       <nav className="bottom-nav" aria-label="Bottom navigation">
         {tabs.map(([id, label, Icon]) => (
           <button
+            aria-current={page === id ? "page" : undefined}
             className={page === id ? "active" : ""}
             key={id}
             onClick={() => navigate(id)}
@@ -315,7 +319,7 @@ function AppContent() {
         <Sheet
           open
           onClose={() => setSearch(false)}
-          title="Find a little of everything"
+          title="Find something in your day"
         >
           <div className="search-field global-search">
             <Search size={20} />
@@ -361,7 +365,7 @@ function AppContent() {
   );
 }
 function SunMark() {
-  return <Grid2X2 size={30} strokeWidth={1.2} />;
+  return <DayOrbit />;
 }
 export default function DayHub() {
   return (

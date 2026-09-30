@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./components.css";
+import "./shell.css";
 import "./home.css";
+import "./refined.css";
 export const metadata: Metadata = {
   title: "DayHub — Your day. One place.",
   description:
@@ -18,8 +21,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0d1422" },
-    { media: "(prefers-color-scheme: light)", color: "#eef3f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#17151f" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f5f9" },
   ],
 };
 export default function RootLayout({

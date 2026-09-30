@@ -11,16 +11,26 @@ import {
   ArrowUpRight,
   SlidersHorizontal,
   StickyNote,
-  ArrowRight,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Entry, Kind } from "@/types";
-import { day, offset, occurs, priceFacts, briefing, money } from "@/lib/model";
+import {
+  day,
+  offset,
+  occurs,
+  priceFacts,
+  briefing,
+  money,
+  formatTime,
+  relativeDate,
+} from "@/lib/model";
 import { DashboardSection, EmptyState, GlassCard } from "../ui";
 import { TaskRow, EventRow, BillRow, DeliveryCard, PriceCard } from "../rows";
 import { WeatherCard } from "./weather";
 import { ExpenseSummary } from "./spending";
+import { DayOrbit } from "../brand";
 export function Home({
   navigate,
   open,
@@ -32,9 +42,21 @@ export function Home({
 }) {
   const { entries, settings } = useStore(),
     today = day();
-  const tasks = entries.filter(
-    (e) => e.kind === "tasks" && !e.completed && (!e.date || e.date <= today),
-  );
+  const priorityOrder = (value?: string) =>
+    value === "High" ? 0 : value === "Low" ? 2 : 1;
+  const tasks = entries
+    .filter(
+      (e) => e.kind === "tasks" && !e.completed && (!e.date || e.date <= today),
+    )
+    .sort((a, b) => {
+      const overdueA = a.date && a.date < today ? 0 : 1;
+      const overdueB = b.date && b.date < today ? 0 : 1;
+      return (
+        overdueA - overdueB ||
+        priorityOrder(a.priority) - priorityOrder(b.priority) ||
+        (a.time || "24:00").localeCompare(b.time || "24:00")
+      );
+    });
   const events = entries
     .filter(
       (e) =>
@@ -72,6 +94,44 @@ export function Home({
       .length +
     products.filter((e) => priceFacts(e).target).length;
   const hour = new Date().getHours();
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  const upcomingEvents = events.filter(
+    (e) => !occurs(e, today) || !e.time || (e.endTime || e.time) >= nowTime,
+  );
+  const soon = upcomingEvents.find((e) => occurs(e, today) && e.time);
+  const arriving = deliveries.find((e) => e.date === today);
+  const target = drops.find((e) => priceFacts(e).target);
+  const focus =
+    overdue[0] ||
+    soon ||
+    arriving ||
+    target ||
+    tasks[0] ||
+    upcomingEvents[0] ||
+    bills[0];
+  const focusLabel = !focus
+    ? "A little breathing room"
+    : focus === overdue[0]
+      ? "Needs your attention"
+      : focus.kind === "events"
+        ? "Up next"
+        : focus.kind === "deliveries"
+          ? "Arriving today"
+          : focus.kind === "products"
+            ? "Target reached"
+            : focus.kind === "tasks"
+              ? "On your list"
+              : "Coming up";
+  const focusValue =
+    focus?.kind === "events" && focus.time
+      ? formatTime(focus.time, settings)
+      : focus?.kind === "bills"
+        ? money(focus.amount, settings.currency)
+        : focus?.kind === "products"
+          ? money(focus.price, settings.currency)
+          : focus
+            ? relativeDate(focus.date, settings)
+            : "";
   const stats: [string, string, number | string, typeof Sun][] = [
     [
       "events",
@@ -102,15 +162,19 @@ export function Home({
   ];
   const widgets: Record<string, React.ReactNode> = {
     briefing: (
-      <GlassCard className="briefing-card">
-        <div className="section-title">
-          <h2>
+      <details className="glass briefing-card">
+        <summary>
+          <span className="briefing-icon">
             <Sparkles size={18} />
-            Daily briefing
-          </h2>
-        </div>
+          </span>
+          <span>
+            <strong>Your daily briefing</strong>
+            <small>{briefing(entries, settings)}</small>
+          </span>
+          <ChevronDown size={15} />
+        </summary>
         <p>{briefing(entries, settings)}</p>
-      </GlassCard>
+      </details>
     ),
     weather: (
       <GlassCard className="weather-wrapper">
@@ -123,8 +187,8 @@ export function Home({
         icon={<CalendarDays size={18} />}
         action={() => navigate("events")}
       >
-        {events.length ? (
-          events
+        {upcomingEvents.length ? (
+          upcomingEvents
             .slice(0, 3)
             .map((e) => <EventRow key={e.id} entry={e} open={() => open(e)} />)
         ) : (
@@ -139,7 +203,7 @@ export function Home({
     ),
     tasks: (
       <DashboardSection
-        title="Tasks"
+        title="A few things to do"
         icon={<CheckCheck size={19} />}
         action={() => navigate("tasks")}
       >
@@ -223,7 +287,7 @@ export function Home({
     ),
     prices: (
       <DashboardSection
-        title="Price Watch"
+        title="Worth the wait"
         icon={<TrendingDown size={19} />}
         action={() => navigate("products")}
         className="price-watch-home"
@@ -256,7 +320,7 @@ export function Home({
     ),
     notes: (
       <DashboardSection
-        title="Pinned notes"
+        title="Keep it close"
         icon={<StickyNote size={18} />}
         action={() => navigate("notes")}
       >
@@ -320,7 +384,7 @@ export function Home({
       icon: CheckCheck,
     },
     events: {
-      count: events.length,
+      count: upcomingEvents.length,
       title: "Calendar",
       status: "No upcoming events",
       route: "events",
@@ -367,43 +431,69 @@ export function Home({
   return (
     <div className="home-dashboard">
       <header className="home-heading">
-        <p className="eyebrow">
-          {new Date().toLocaleDateString("en-AU", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
-        <h1>
-          Good {hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"},{" "}
-          <span>{settings.name}</span>
-        </h1>
-        <p>
-          <span className="status-orb" />
-          {attention
-            ? `${attention} thing${attention > 1 ? "s" : ""} could use your attention.`
-            : "Your day looks clear."}
-        </p>
+        <div>
+          <p className="eyebrow">
+            {new Date().toLocaleDateString("en-AU", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </p>
+          <h1>
+            Good {hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"},
+            <span>{settings.name}.</span>
+          </h1>
+          <p className={attention ? "home-attention" : ""}>
+            <span className="status-orb" />
+            {attention
+              ? `${attention} thing${attention > 1 ? "s" : ""} need${attention === 1 ? "s" : ""} your attention.`
+              : "Your day looks clear. Make a little room for you."}
+          </p>
+        </div>
+        <DayOrbit />
       </header>
       <GlassCard className="today-card">
         <div className="section-title">
-          <h2>
-            <Sun size={20} />
-            Today
-          </h2>
-          <button className="text-button" onClick={() => navigate("today")}>
-            Timeline <ArrowRight size={16} />
+          <h2>Your day at a glance</h2>
+          <button className="today-label" onClick={() => navigate("today")}>
+            <Sun size={12} /> Today <ChevronRight size={12} />
           </button>
         </div>
         <div className="today-stats">
           {stats.map(([route, label, value, Icon]) => (
             <button key={route} onClick={() => navigate(route)}>
-              <Icon size={19} />
               <strong>{value}</strong>
-              <small>{label}</small>
+              <small>
+                <Icon size={12} />
+                {label}
+              </small>
             </button>
           ))}
         </div>
+        <button
+          className={`home-focus ${overdue[0] && focus === overdue[0] ? "urgent-focus" : ""}`}
+          onClick={() => (focus ? open(focus) : navigate("today"))}
+        >
+          <span className="icon-tile">
+            {focus?.kind === "bills" ? (
+              <Receipt size={18} />
+            ) : focus?.kind === "tasks" ? (
+              <CheckCheck size={18} />
+            ) : focus?.kind === "deliveries" ? (
+              <Package size={18} />
+            ) : focus?.kind === "products" ? (
+              <TrendingDown size={18} />
+            ) : (
+              <CalendarDays size={18} />
+            )}
+          </span>
+          <span className="focus-text">
+            <small>{focusLabel}</small>
+            <strong>{focus?.title || "Nothing scheduled right now"}</strong>
+          </span>
+          <span className="focus-value">{focusValue}</span>
+          <ChevronRight size={14} />
+        </button>
       </GlassCard>
       <div className="dashboard-grid">
         {active.map((w) => (
@@ -413,7 +503,10 @@ export function Home({
         ))}
         {quiet.length > 0 && (
           <GlassCard className="home-quiet">
-            <h2>All clear</h2>
+            <div className="quiet-heading">
+              <h2>The rest of your day</h2>
+              <span>All clear</span>
+            </div>
             <div className="home-quiet-grid">
               {quiet.map((w) => {
                 const section = quietSections[w],

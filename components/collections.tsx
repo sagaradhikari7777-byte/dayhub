@@ -156,7 +156,7 @@ export function Collection({
         title={labels[kind]}
         detail={
           kind === "products"
-            ? "The things you love. At a price you’ll love."
+            ? "Good things. At a better price."
             : `${all.length} ${all.length === 1 ? "item" : "items"} in your space`
         }
         action={
@@ -270,9 +270,10 @@ export function Collection({
           )}
         </>
       )}
-      <div className="filter-row">
+      <div className="filter-row" aria-label="Filter items">
         {filters.map((f) => (
           <button
+            aria-pressed={f === filter}
             className={f === filter ? "active" : ""}
             key={f}
             onClick={() => setFilter(f)}

@@ -72,7 +72,7 @@ export function DashboardSection({
         </h2>
         {action && (
           <button className="text-button" onClick={action}>
-            See all <ArrowUpRight size={15} />
+            See all <ChevronRight size={13} />
           </button>
         )}
       </div>
