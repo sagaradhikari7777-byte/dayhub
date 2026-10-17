@@ -1,4 +1,0 @@
-{
-  "framework": "nextjs",
-  "crons": [{ "path": "/api/cron/prices", "schedule": "0 21 * * *" }]
-}

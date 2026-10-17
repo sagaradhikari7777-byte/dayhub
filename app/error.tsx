@@ -1,17 +1,14 @@
 "use client";
-export default function ErrorPage({ reset }: { reset: () => void }) {
+
+export default function Error({ reset }: { reset: () => void }) {
   return (
-    <main className="main-content">
-      <section className="glass empty">
-        <h1>Let’s try that again.</h1>
-        <p>
-          DayHub hit a temporary problem. Your saved records are still in the
-          database.
-        </p>
-        <button className="primary" onClick={reset}>
+    <main className="shell center">
+      <div className="card notice error">
+        <p>Something went wrong.</p>
+        <button className="btn" onClick={reset}>
           Try again
         </button>
-      </section>
+      </div>
     </main>
   );
 }

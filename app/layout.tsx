@@ -1,37 +1,36 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import "./components.css";
-import "./shell.css";
-import "./home.css";
-import "./refined.css";
+
 export const metadata: Metadata = {
-  title: "DayHub — Your day. One place.",
+  title: "Clan Cup",
   description:
-    "A little more clarity. Your day, tasks, spending and price watch in one personal space.",
+    "Register for the clan tournament, follow the bracket and see every result.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "DayHub",
+    title: "Clan Cup",
   },
-  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
 };
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#17151f" },
-    { media: "(prefers-color-scheme: light)", color: "#f6f5f9" },
+    { media: "(prefers-color-scheme: dark)", color: "#14161c" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f3ee" },
   ],
 };
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en">
       <body>
         <a href="#main-content" className="skip-link">
           Skip to content

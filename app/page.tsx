@@ -1,4 +1,5 @@
-import DayHub from "@/components/app";
+import { App } from "@/components/app";
+
 export default function Page() {
-  return <DayHub />;
+  return <App />;
 }
