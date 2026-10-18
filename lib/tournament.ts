@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { buildBracket, findMatch, shuffle } from "./bracket";
+import { normalizeTag } from "./coc";
 import type { Player, Tournament } from "./types";
 
 // Pure state changes. Each throws ActionError with a message for the user.
@@ -20,6 +21,7 @@ export const adminAction = z.discriminatedUnion("type", [
     format: z.union([z.literal(1), z.literal(3), z.literal(5)]).optional(),
     registrationOpen: z.boolean().optional(),
     maxPlayers: z.number().int().min(2).max(256).optional(),
+    clanTag: z.string().max(20).optional(),
   }),
   z.object({ type: z.literal("removePlayer"), tag: z.string() }),
   z.object({ type: z.literal("createBracket"), shuffle: z.boolean() }),
@@ -69,6 +71,11 @@ export function applyAdminAction(
             `${t.players.length} players are already registered`,
           );
         t.maxPlayers = action.maxPlayers;
+      }
+      if (action.clanTag !== undefined) {
+        const tag = normalizeTag(action.clanTag);
+        if (!tag) throw new ActionError("That isn't a valid clan tag");
+        t.clanTag = tag;
       }
       if (action.name !== undefined) t.name = action.name;
       if (action.registrationOpen !== undefined)

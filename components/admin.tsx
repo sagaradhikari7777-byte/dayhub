@@ -123,6 +123,8 @@ function Settings({ state, admin, notify }: Actions) {
   const [max, setMax] = useState(String(t.maxPlayers));
   useEffect(() => setName(t.name), [t.name]);
   useEffect(() => setMax(String(t.maxPlayers)), [t.maxPlayers]);
+  const [clan, setClan] = useState(t.clanTag);
+  useEffect(() => setClan(t.clanTag), [t.clanTag]);
   const hasResults = Object.keys(t.results).length > 0;
 
   return (
@@ -132,7 +134,14 @@ function Settings({ state, admin, notify }: Actions) {
         className="inline-form"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await admin({ type: "settings", name, maxPlayers: Number(max) }))
+          if (
+            await admin({
+              type: "settings",
+              name,
+              maxPlayers: Number(max),
+              clanTag: clan,
+            })
+          )
             notify("Settings saved");
         }}
       >
@@ -143,6 +152,16 @@ function Settings({ state, admin, notify }: Actions) {
             value={name}
             maxLength={60}
             onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>Clan tag</span>
+          <input
+            className="input num"
+            value={clan}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            onChange={(e) => setClan(e.target.value)}
           />
         </label>
         <label className="field">

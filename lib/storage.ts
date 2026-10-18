@@ -6,6 +6,7 @@ import type { Tournament } from "./types";
 // Redis (the existing Vercel integration); local development uses a file.
 
 const KEY = "clancup:v1:tournament";
+export const DEFAULT_CLAN = "#U0Y0R2GC";
 const FILE = path.join(process.cwd(), ".data", "clancup.json");
 
 export function emptyTournament(): Tournament {
@@ -15,6 +16,7 @@ export function emptyTournament(): Tournament {
     format: 3,
     registrationOpen: true,
     maxPlayers: 64,
+    clanTag: DEFAULT_CLAN,
     players: [],
     bracket: null,
     results: {},

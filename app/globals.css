@@ -381,7 +381,7 @@ p.notice.error {
   min-height: 36px;
 }
 .input.num {
-  width: 110px;
+  width: 130px;
 }
 .field {
   display: flex;
@@ -526,6 +526,76 @@ p.notice.error {
 }
 .clan-head h2 {
   margin: 0;
+}
+.clan-head img {
+  flex: none;
+}
+.clan-desc {
+  white-space: pre-line;
+  color: var(--muted);
+  margin: 4px 0 12px;
+}
+.clan-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+.clan-facts > div {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.clan-facts strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.clan-facts strong.league {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.progress {
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 99px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+.roster-hint {
+  margin: 16px 0 8px;
+}
+.roster-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.roster-tools .input {
+  flex: 1;
+  min-width: 180px;
+}
+.other-ways summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+.other-ways .card {
+  border: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.other-ways h2 {
+  margin-top: 8px;
 }
 .plain {
   margin: 0;

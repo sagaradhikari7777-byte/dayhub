@@ -36,6 +36,8 @@ export type Tournament = {
   format: Format;
   registrationOpen: boolean;
   maxPlayers: number;
+  // The clan whose roster the Register page opens on.
+  clanTag: string;
   players: Player[];
   bracket: { order: string[]; createdAt: string } | null;
   results: Record<string, MatchResult>;

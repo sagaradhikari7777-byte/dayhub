@@ -74,6 +74,10 @@ type RawClan = {
   members?: number;
   badgeUrls?: RawBadge;
   location?: { name?: string };
+  description?: string;
+  warWins?: number;
+  isWarLogPublic?: boolean;
+  warLeague?: { name?: string };
 };
 type RawMember = {
   tag: string;
@@ -92,6 +96,9 @@ export type ClanSummary = {
   members: number | null;
   badge: string | null;
   location: string | null;
+  description: string | null;
+  warWins: number | null;
+  warLeague: string | null;
 };
 export type MemberSummary = {
   tag: string;
@@ -112,6 +119,9 @@ const clanSummary = (c: RawClan): ClanSummary => ({
   members: c.members ?? null,
   badge: c.badgeUrls?.small ?? null,
   location: c.location?.name ?? null,
+  description: c.description?.trim() || null,
+  warWins: c.isWarLogPublic === false ? null : (c.warWins ?? null),
+  warLeague: c.warLeague?.name ?? null,
 });
 
 const memberSummary = (m: RawMember): MemberSummary => ({

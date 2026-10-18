@@ -91,3 +91,14 @@ test("results record the players and the admin", () => {
     /Clear/,
   );
 });
+
+test("the home clan defaults to #U0Y0R2GC and admins can change it", () => {
+  const t = emptyTournament();
+  assert.equal(t.clanTag, "#U0Y0R2GC");
+  applyAdminAction(t, { type: "settings", clanTag: "2pp" }, "admin");
+  assert.equal(t.clanTag, "#2PP");
+  assert.throws(
+    () => applyAdminAction(t, { type: "settings", clanTag: "nope!" }, "admin"),
+    /clan tag/,
+  );
+});
