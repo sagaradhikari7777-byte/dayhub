@@ -1,6 +1,12 @@
 "use client";
 
-import { CalendarDays, Home as HomeIcon, Lock, UserPlus } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  Home as HomeIcon,
+  Lock,
+  UserPlus,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Player, PublicState, Tournament } from "@/lib/types";
 import { Admin } from "./admin";
@@ -9,13 +15,18 @@ import { EventPage, EventsList } from "./events";
 import { Home } from "./home";
 import { Logo } from "./logo";
 import { Register } from "./register";
+import { StatsPage } from "./stats";
 
-// Hash routes: #/ · #register[/eventId] · #events · #event/id[/players] · #admin
+// Hash routes: #/ · #register[/eventId] · #events · #event/id[/players|stats]
+// · #stats · #admin
+export type EventTab = "bracket" | "players" | "stats";
+
 export type Route =
   | { page: "home" }
   | { page: "register"; eventId: string | null }
   | { page: "events" }
-  | { page: "event"; id: string; tab: "bracket" | "players" }
+  | { page: "event"; id: string; tab: EventTab }
+  | { page: "stats" }
   | { page: "admin" };
 
 function parseRoute(hash: string): Route {
@@ -27,8 +38,14 @@ function parseRoute(hash: string): Route {
       return { page: "events" };
     case "event":
       return id
-        ? { page: "event", id, tab: tab === "players" ? "players" : "bracket" }
+        ? {
+            page: "event",
+            id,
+            tab: tab === "players" || tab === "stats" ? tab : "bracket",
+          }
         : { page: "events" };
+    case "stats":
+      return { page: "stats" };
     case "admin":
       return { page: "admin" };
     default:
@@ -54,6 +71,7 @@ const nav = [
   { hash: "#/", page: "home", label: "Home", icon: HomeIcon },
   { hash: "#register", page: "register", label: "Register", icon: UserPlus },
   { hash: "#events", page: "events", label: "Events", icon: CalendarDays },
+  { hash: "#stats", page: "stats", label: "Stats", icon: BarChart3 },
   { hash: "#admin", page: "admin", label: "Admin", icon: Lock },
 ] as const;
 
@@ -178,6 +196,8 @@ export function App() {
           <Home {...actions} />
         ) : route.page === "register" ? (
           <Register {...actions} eventId={route.eventId} />
+        ) : route.page === "stats" ? (
+          <StatsPage {...actions} />
         ) : route.page === "events" ? (
           <EventsList {...actions} />
         ) : route.page === "event" ? (

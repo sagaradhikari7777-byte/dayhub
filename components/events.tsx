@@ -10,9 +10,10 @@ import {
   upcomingEvents,
 } from "@/lib/events";
 import type { Tournament } from "@/lib/types";
-import type { Actions, EventActions } from "./app";
+import type { Actions, EventActions, EventTab } from "./app";
 import { Bracket } from "./bracket";
 import { Players } from "./players";
+import { EventStats } from "./stats";
 
 export function StatusPill({ event }: { event: Tournament }) {
   const status = eventStatus(event);
@@ -109,9 +110,7 @@ export function EventsList({ state }: Actions) {
   );
 }
 
-export function EventPage(
-  props: EventActions & { tab: "bracket" | "players" },
-) {
+export function EventPage(props: EventActions & { tab: EventTab }) {
   const { event, tab } = props;
   const status = eventStatus(event);
   const date = formatDate(event.startsAt);
@@ -152,24 +151,31 @@ export function EventPage(
         )}
       </section>
       <div className="segmented wide" role="tablist">
-        <a
-          role="tab"
-          aria-selected={tab === "bracket"}
-          className={tab === "bracket" ? "active" : ""}
-          href={`#event/${event.id}`}
-        >
-          Bracket
-        </a>
-        <a
-          role="tab"
-          aria-selected={tab === "players"}
-          className={tab === "players" ? "active" : ""}
-          href={`#event/${event.id}/players`}
-        >
-          Players · {event.players.length}
-        </a>
+        {(
+          [
+            ["bracket", "Bracket", ""],
+            ["players", `Players · ${event.players.length}`, "/players"],
+            ["stats", "Stats", "/stats"],
+          ] as const
+        ).map(([id, label, suffix]) => (
+          <a
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            className={tab === id ? "active" : ""}
+            href={`#event/${event.id}${suffix}`}
+          >
+            {label}
+          </a>
+        ))}
       </div>
-      {tab === "bracket" ? <Bracket {...props} /> : <Players {...props} />}
+      {tab === "bracket" ? (
+        <Bracket {...props} />
+      ) : tab === "players" ? (
+        <Players {...props} />
+      ) : (
+        <EventStats event={event} />
+      )}
     </div>
   );
 }
