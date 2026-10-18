@@ -22,14 +22,16 @@ import { Bracket } from "./bracket";
 import { Players } from "./players";
 import { CwlView, EventRules } from "./cwl";
 import { EventStats } from "./stats";
-import { placement } from "@/lib/cwl";
+import { placement, starLeader } from "@/lib/cwl";
 
 export function StatusPill({ event }: { event: Tournament }) {
   const status = eventStatus(event);
   return (
     <span className={`pill ${status}`}>
       <span className="dot" />
-      {statusLabel[status]}
+      {event.kind === "cwl" && !event.cwl?.snapshot
+        ? "Starts with CWL"
+        : statusLabel[status]}
     </span>
   );
 }
@@ -41,6 +43,13 @@ function cwlPlaceText(event: Tournament, clanTag: string) {
   return snap.state === "ended"
     ? `Finished #${place} of ${snap.clans.length}`
     : `Currently #${place} of ${snap.clans.length}`;
+}
+
+function cwlLeaderText(event: Tournament, clanTag: string) {
+  const snap = event.cwl!.snapshot!;
+  const top = starLeader(snap, clanTag);
+  if (!top) return null;
+  return `${snap.state === "ended" ? "Winner" : "Leading"}: ${top.name} · ${top.stars}★`;
 }
 
 export function EventCard({
@@ -76,14 +85,27 @@ export function EventCard({
             <Gift size={15} /> {event.prize}
           </span>
         )}
-        <span>
-          <Users size={15} /> {event.players.length}/{event.maxPlayers}
-        </span>
+        {event.kind === "knockout" && (
+          <span>
+            <Users size={15} /> {event.players.length}/{event.maxPlayers}
+          </span>
+        )}
       </div>
-      {event.cwl?.snapshot ? (
-        <div className="event-winner">
-          <Trophy size={16} /> {cwlPlaceText(event, clanTag)}
-        </div>
+      {event.kind === "cwl" && !event.cwl?.snapshot ? (
+        <span className="muted small">
+          Fills in automatically when CWL starts. No sign-up needed.
+        </span>
+      ) : event.cwl?.snapshot ? (
+        <>
+          {cwlLeaderText(event, clanTag) && (
+            <div className="event-winner">
+              <Crown size={16} /> {cwlLeaderText(event, clanTag)}
+            </div>
+          )}
+          <span className="muted small">
+            <Trophy size={13} /> {cwlPlaceText(event, clanTag)}
+          </span>
+        </>
       ) : winnerName ? (
         <div className="event-winner">
           <Crown size={16} /> {winnerName}
@@ -94,11 +116,15 @@ export function EventCard({
         </div>
       )}
       <span className="event-cta">
-        {status === "open"
-          ? "Register →"
-          : status === "live"
-            ? "Follow bracket →"
-            : "View →"}
+        {event.kind === "cwl"
+          ? status === "live"
+            ? "Follow the star race →"
+            : "View →"
+          : status === "open"
+            ? "Register →"
+            : status === "live"
+              ? "Follow bracket →"
+              : "View →"}
       </span>
     </a>
   );
@@ -162,7 +188,9 @@ export function EventPage(props: EventActions & { tab: EventTab | null }) {
   const status = eventStatus(event);
   const date = formatDate(event.startsAt);
   const canRegister =
-    status === "open" && event.players.length < event.maxPlayers;
+    event.kind !== "cwl" &&
+    status === "open" &&
+    event.players.length < event.maxPlayers;
   return (
     <div className="page">
       <a className="back" href="#events">
@@ -190,10 +218,10 @@ export function EventPage(props: EventActions & { tab: EventTab | null }) {
             <span>
               <Trophy size={15} /> {cwlPlaceText(event, state.hub.clanTag)}
             </span>
-          ) : (
+          ) : cwl ? null : (
             <span>
               <Users size={15} /> {event.players.length} of {event.maxPlayers}{" "}
-              {cwl ? "signed up" : "players"}
+              players
             </span>
           )}
         </div>

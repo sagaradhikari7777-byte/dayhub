@@ -55,8 +55,11 @@ export function newCwlEvent(season: string): Tournament {
   return {
     ...newEvent(`CWL · ${seasonLabel(season)}`, `cwl-${season}`),
     kind: "cwl",
-    description: "Clan War League. Results update automatically from the game.",
+    description:
+      "Clan War League. Most stars across the season wins. Everything updates automatically from the game.",
     format: 1,
+    // The lineup comes from the game, so nobody signs up.
+    registrationOpen: false,
     maxPlayers: 50,
     rules: DEFAULT_CWL_RULES,
     cwl: { season, snapshot: null, syncedAt: null },

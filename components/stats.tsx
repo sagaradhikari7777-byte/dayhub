@@ -10,7 +10,7 @@ import {
   Timer,
   Trophy,
 } from "lucide-react";
-import { placement, playerRecords, standings } from "@/lib/cwl";
+import { placement, playerRecords, standings, starLeader } from "@/lib/cwl";
 import { useMemo } from "react";
 import { formatDate } from "@/lib/events";
 import {
@@ -33,6 +33,10 @@ export function StatsPage({ state }: Actions) {
   const summaries = useMemo(() => events.map(summarize), [events]);
   const stats = useMemo(() => playerStats(events), [events]);
   const winners = summaries.filter((s) => s.champion);
+  const cwlWinners = seasons
+    .filter((e) => e.cwl!.snapshot!.state === "ended")
+    .filter((e) => starLeader(e.cwl!.snapshot!, state.hub.clanTag))
+    .reverse();
   const played = stats.filter((s) => s.attacks > 0 || s.matchesWon > 0);
 
   return (
@@ -50,8 +54,15 @@ export function StatsPage({ state }: Actions) {
             <Trophy size={22} /> Hall of champions
           </h2>
         </div>
-        {winners.length ? (
+        {winners.length || cwlWinners.length ? (
           <div className="event-grid">
+            {cwlWinners.map((e) => (
+              <CwlChampionCard
+                key={e.id}
+                event={e}
+                clanTag={state.hub.clanTag}
+              />
+            ))}
             {winners.map((s) => (
               <ChampionCard key={s.event.id} summary={s} />
             ))}
@@ -59,7 +70,10 @@ export function StatsPage({ state }: Actions) {
         ) : (
           <div className="panel empty">
             <Crown size={28} />
-            <p>No champions yet. Winners appear here when a final is played.</p>
+            <p>
+              No champions yet. Winners appear here when a final is played or a
+              CWL season ends.
+            </p>
           </div>
         )}
       </section>
@@ -363,6 +377,43 @@ function CwlSeasonRow({
           #{place} of {snap.clans.length}
         </span>
       )}
+    </a>
+  );
+}
+
+// CWL's winner is the player with the most stars across the season.
+function CwlChampionCard({
+  event,
+  clanTag,
+}: {
+  event: Tournament;
+  clanTag: string;
+}) {
+  const snap = event.cwl!.snapshot!;
+  const top = starLeader(snap, clanTag)!;
+  const runnerUp = playerRecords(snap, clanTag)[1];
+  return (
+    <a className="champion-card" href={`#event/${event.id}`}>
+      <div className="champion-card-top">
+        <span className="eyebrow">{event.name}</span>
+        {event.prize && <span className="chip gold">{event.prize}</span>}
+      </div>
+      <div className="champion-name">
+        <span className="crown">
+          <Crown size={22} />
+        </span>
+        <div className="row-main">
+          <strong className="display">{top.name}</strong>
+          <span className="muted small">
+            Most stars: {top.stars}★ in {top.attacks} attacks
+            {runnerUp ? ` · ${runnerUp.name} next with ${runnerUp.stars}★` : ""}
+          </span>
+        </div>
+      </div>
+      <span className="muted small">
+        {top.threeStars}× 3★ · {top.destruction}% avg · clan finished #
+        {placement(snap, clanTag)} of {snap.clans.length}
+      </span>
     </a>
   );
 }

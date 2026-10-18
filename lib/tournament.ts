@@ -69,6 +69,10 @@ export const adminAction = z.discriminatedUnion("type", [
 export type AdminAction = z.infer<typeof adminAction>;
 
 export function addPlayer(t: Tournament, player: Player, byAdmin: boolean) {
+  if (t.kind === "cwl")
+    throw new ActionError(
+      "No sign-up needed for CWL. The lineup comes from the game.",
+    );
   if (!byAdmin && !t.registrationOpen)
     throw new ActionError("Registration is closed");
   if (t.bracket) throw new ActionError("The bracket has already been drawn");

@@ -28,6 +28,7 @@ type Pending = { tag: string; label: string; body: object };
 function eligibleEvents(hub: Hub, isAdmin: boolean) {
   return upcomingEvents(hub).filter(
     (e) =>
+      e.kind !== "cwl" &&
       !e.bracket &&
       (e.registrationOpen || isAdmin) &&
       e.players.length < e.maxPlayers,

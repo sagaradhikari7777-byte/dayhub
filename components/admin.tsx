@@ -263,8 +263,8 @@ function NewEvent({
       ) : (
         <label className="field">
           <span>
-            CWL season. Players can sign up now; results load automatically when
-            the season starts.
+            CWL season. No sign-up needed: this is created automatically when
+            CWL starts. Create it early only to set the prize and rules.
           </span>
           <input
             className="input"
@@ -409,15 +409,17 @@ function EventSettings({
             onChange={(e) => set({ prize: e.target.value })}
           />
         </label>
-        <label className="field">
-          <span>Max players</span>
-          <input
-            className="input"
-            inputMode="numeric"
-            value={form.maxPlayers}
-            onChange={(e) => set({ maxPlayers: e.target.value })}
-          />
-        </label>
+        {t.kind === "knockout" && (
+          <label className="field">
+            <span>Max players</span>
+            <input
+              className="input"
+              inputMode="numeric"
+              value={form.maxPlayers}
+              onChange={(e) => set({ maxPlayers: e.target.value })}
+            />
+          </label>
+        )}
         <label className="field span-2">
           <span>
             Event rules (one per line, shown on the event's Rules tab)
@@ -455,22 +457,20 @@ function EventSettings({
           )}
         </div>
       )}
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={t.registrationOpen}
-          disabled={Boolean(t.bracket || t.cwl?.snapshot)}
-          onChange={(e) =>
-            admin({ type: "settings", registrationOpen: e.target.checked })
-          }
-        />
-        <span className="toggle-track" aria-hidden />
-        <span>
-          {t.kind === "cwl"
-            ? "Sign-ups open (closes when the season starts)"
-            : "Registration open to players"}
-        </span>
-      </label>
+      {t.kind === "knockout" && (
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={t.registrationOpen}
+            disabled={Boolean(t.bracket)}
+            onChange={(e) =>
+              admin({ type: "settings", registrationOpen: e.target.checked })
+            }
+          />
+          <span className="toggle-track" aria-hidden />
+          <span>Registration open to players</span>
+        </label>
+      )}
     </section>
   );
 }

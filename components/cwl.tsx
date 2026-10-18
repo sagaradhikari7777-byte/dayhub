@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, ScrollText, Shield, Swords } from "lucide-react";
+import { Clock, Crown, ScrollText, Shield, Swords } from "lucide-react";
 import { useMemo } from "react";
 import {
   ourWars,
@@ -35,11 +35,10 @@ export function CwlView({
         <section className="panel notice">
           <h2>Waiting for CWL to start</h2>
           <p className="muted">
-            When the season starts, the league table, every war and every attack
-            appear here automatically.
+            No sign-up needed. When the season starts, the star race, league
+            table, every war and every attack appear here automatically.
           </p>
         </section>
-        <SignUps event={event} />
       </div>
     );
   if (tab === "rounds") return <Rounds snapshot={snapshot} clanTag={clanTag} />;
@@ -74,26 +73,6 @@ export function EventRules({ rules }: { rules: string[] }) {
           </li>
         ))}
       </ol>
-    </section>
-  );
-}
-
-function SignUps({ event }: { event: Tournament }) {
-  if (!event.players.length) return null;
-  return (
-    <section className="panel">
-      <h2 className="display">Signed up · {event.players.length}</h2>
-      <ul className="list">
-        {event.players.map((p) => (
-          <li key={p.tag} className="member">
-            <TownHall level={p.townHallLevel} />
-            <div className="row-main">
-              <strong>{p.name}</strong>
-              <span className="muted small">{p.tag}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }
@@ -149,6 +128,7 @@ function Overview({
           <Clock size={13} /> Updated {ago(syncedAt)}
         </span>
       </div>
+      <StarRace snapshot={s} clanTag={clanTag} />
       {us && (
         <div className="stat-tiles four">
           <div className="panel stat-tile">
@@ -455,7 +435,7 @@ function CwlPlayers({
     );
   return (
     <section className="stack">
-      <h2 className="display">Player records</h2>
+      <h2 className="display">Star race</h2>
       <div className="panel leaderboard">
         <div className="lb-row cwl-player lb-head muted small">
           <span>#</span>
@@ -500,9 +480,64 @@ function CwlPlayers({
         ))}
       </div>
       <p className="muted small">
-        Hits = attacks used out of wars in the lineup. Def = stars given up when
-        defending.
+        Most stars wins. Ties go to higher average destruction, then fewer
+        missed attacks. Hits = attacks used out of wars in the lineup. Def =
+        stars given up when defending.
       </p>
+    </section>
+  );
+}
+
+// Top three by stars: the season's winner and podium.
+function StarRace({
+  snapshot: s,
+  clanTag,
+}: {
+  snapshot: CwlSnapshot;
+  clanTag: string;
+}) {
+  const top = useMemo(
+    () =>
+      playerRecords(s, clanTag)
+        .filter((r) => r.stars > 0)
+        .slice(0, 3),
+    [s, clanTag],
+  );
+  if (!top.length) return null;
+  const ended = s.state === "ended";
+  const [first, ...rest] = top;
+  return (
+    <section className="panel star-race">
+      <span className="eyebrow">
+        {ended ? "CWL winner · most stars" : "Leading the star race"}
+      </span>
+      <div className="star-leader">
+        <span className="crown">
+          <Crown size={24} />
+        </span>
+        <div className="row-main">
+          <strong className="display">{first.name}</strong>
+          <span className="muted small">
+            {first.threeStars}× 3★ · {first.destruction}% avg · {first.attacks}/
+            {first.wars} attacks
+          </span>
+        </div>
+        <span className="star-total display">{first.stars}★</span>
+      </div>
+      {rest.length > 0 && (
+        <div className="podium">
+          {rest.map((r, i) => (
+            <div key={r.tag} className={`podium-spot top-${i + 2}`}>
+              <span className="lb-rank">{i + 2}</span>
+              <span className="row-main">
+                <strong>{r.name}</strong>
+                <span className="muted small">{r.destruction}% avg</span>
+              </span>
+              <span className="gold-text">{r.stars}★</span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

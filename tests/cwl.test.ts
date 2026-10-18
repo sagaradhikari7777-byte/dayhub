@@ -8,10 +8,11 @@ import {
   placement,
   playerRecords,
   standings,
+  starLeader,
   warWinner,
 } from "../lib/cwl";
 import { emptyHub } from "../lib/storage";
-import { applyAdminAction } from "../lib/tournament";
+import { addPlayer, applyAdminAction } from "../lib/tournament";
 import { fakeCwl, OUR_TAG } from "./fixtures/cwl";
 
 function snapshot() {
@@ -95,6 +96,38 @@ test("a war is won on stars, then destruction", () => {
   w.clan.destruction = 90;
   w.opponent.destruction = 85;
   assert.equal(warWinner(w), w.clan.tag);
+});
+
+test("the star leader has the most stars", () => {
+  const s = snapshot();
+  const rows = playerRecords(s, OUR_TAG);
+  const leader = starLeader(s, OUR_TAG)!;
+  assert.equal(leader.tag, rows[0].tag);
+  assert.ok(rows.every((r) => r.stars <= leader.stars));
+});
+
+test("nobody signs up for CWL", () => {
+  const hub = emptyHub();
+  applyAdminAction(hub, { type: "createCwlEvent", season: "2026-12" }, "a");
+  const e = hub.events.at(-1)!;
+  assert.equal(e.registrationOpen, false);
+  assert.throws(
+    () =>
+      addPlayer(
+        e,
+        {
+          tag: "#P1",
+          name: "P",
+          townHallLevel: 16,
+          clanName: null,
+          clanTag: null,
+          registeredAt: "",
+          source: "manual",
+        },
+        true,
+      ),
+    /No sign-up/,
+  );
 });
 
 test("admins can create a CWL event ahead of the season", () => {

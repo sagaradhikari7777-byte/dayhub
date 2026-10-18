@@ -347,8 +347,16 @@ export function placement(s: CwlSnapshot, ourTag: string) {
   return index < 0 ? null : index + 1;
 }
 
+// The season's winner: most stars across every war. Ties go to the higher
+// average destruction, then fewer missed attacks (playerRecords' order).
+export function starLeader(s: CwlSnapshot, ourTag: string) {
+  const [top] = playerRecords(s, ourTag);
+  return top && top.stars > 0 ? top : null;
+}
+
 export const DEFAULT_CWL_RULES = [
-  "Sign up for this CWL event before the season starts. Only signed-up players get a spot in the lineup.",
+  "No sign-up needed. The lineup comes straight from the game.",
+  "The player with the most stars across the whole CWL wins. Ties go to the higher average destruction, then fewer missed attacks.",
   "Use your attack every war day you're in the lineup. A missed attack can cost your spot next season.",
   "Attack your mirror (the same map number) unless an admin tells you otherwise.",
   "Go for 3 stars. If that's unlikely, make sure of 2 stars.",
