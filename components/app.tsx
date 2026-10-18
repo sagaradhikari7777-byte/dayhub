@@ -19,13 +19,23 @@ import { StatsPage } from "./stats";
 
 // Hash routes: #/ · #register[/eventId] · #events · #event/id[/players|stats]
 // · #stats · #admin
-export type EventTab = "bracket" | "players" | "stats";
+// Knockout events use bracket/players/stats; CWL events overview/rounds/players.
+export type EventTab =
+  "bracket" | "players" | "stats" | "rules" | "overview" | "rounds";
+const eventTabs: EventTab[] = [
+  "bracket",
+  "players",
+  "stats",
+  "rules",
+  "overview",
+  "rounds",
+];
 
 export type Route =
   | { page: "home" }
   | { page: "register"; eventId: string | null }
   | { page: "events" }
-  | { page: "event"; id: string; tab: EventTab }
+  | { page: "event"; id: string; tab: EventTab | null }
   | { page: "stats" }
   | { page: "admin" };
 
@@ -41,7 +51,7 @@ function parseRoute(hash: string): Route {
         ? {
             page: "event",
             id,
-            tab: tab === "players" || tab === "stats" ? tab : "bracket",
+            tab: eventTabs.includes(tab as EventTab) ? (tab as EventTab) : null,
           }
         : { page: "events" };
     case "stats":

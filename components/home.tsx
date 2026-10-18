@@ -91,7 +91,7 @@ export function Home(actions: Actions) {
         {upcoming.length ? (
           <div className="event-grid">
             {upcoming.map((e) => (
-              <EventCard key={e.id} event={e} />
+              <EventCard key={e.id} event={e} clanTag={hub.clanTag} />
             ))}
           </div>
         ) : (
@@ -105,7 +105,7 @@ export function Home(actions: Actions) {
       <section className="section" id="rules">
         <div className="section-title">
           <h2 className="display">
-            <ScrollText size={22} /> Rules
+            <ScrollText size={22} /> Clan rules
           </h2>
         </div>
         <ol className="rules panel">
@@ -125,7 +125,7 @@ export function Home(actions: Actions) {
           </div>
           <div className="event-grid">
             {past.map((e) => (
-              <EventCard key={e.id} event={e} />
+              <EventCard key={e.id} event={e} clanTag={hub.clanTag} />
             ))}
           </div>
         </section>

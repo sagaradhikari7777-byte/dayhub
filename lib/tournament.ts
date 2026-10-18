@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { buildBracket, findMatch, shuffle } from "./bracket";
 import { normalizeTag } from "./coc";
-import { newEvent } from "./storage";
+import { newCwlEvent, newEvent } from "./storage";
 import type { Hub, Player, Tournament } from "./types";
 
 // Pure state changes. Each throws ActionError with a message for the user.
@@ -27,6 +27,10 @@ export const adminAction = z.discriminatedUnion("type", [
     type: z.literal("createEvent"),
     name: z.string().trim().min(1).max(60),
   }),
+  z.object({
+    type: z.literal("createCwlEvent"),
+    season: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  }),
   z.object({ type: z.literal("deleteEvent"), eventId }),
   z.object({
     type: z.literal("settings"),
@@ -39,6 +43,7 @@ export const adminAction = z.discriminatedUnion("type", [
       .nullable()
       .optional(),
     prize: z.string().trim().max(80).optional(),
+    rules: z.array(z.string().trim().min(1).max(300)).max(30).optional(),
     format: z.union([z.literal(1), z.literal(3), z.literal(5)]).optional(),
     registrationOpen: z.boolean().optional(),
     maxPlayers: z.number().int().min(2).max(256).optional(),
@@ -101,6 +106,11 @@ export function applyAdminAction(
         throw new ActionError("Delete an old event first");
       hub.events.push(newEvent(action.name));
       return hub;
+    case "createCwlEvent":
+      if (hub.events.some((e) => e.cwl?.season === action.season))
+        throw new ActionError("That CWL season already has an event");
+      hub.events.push(newCwlEvent(action.season));
+      return hub;
     case "deleteEvent":
       findEvent(hub, action.eventId);
       hub.events = hub.events.filter((e) => e.id !== action.eventId);
@@ -116,7 +126,7 @@ export function applyAdminAction(
 
 type EventAction = Exclude<
   AdminAction,
-  { type: "hubSettings" | "createEvent" | "deleteEvent" }
+  { type: "hubSettings" | "createEvent" | "createCwlEvent" | "deleteEvent" }
 >;
 
 function applyEventAction(
@@ -145,6 +155,7 @@ function applyEventAction(
       if (action.description !== undefined) t.description = action.description;
       if (action.startsAt !== undefined) t.startsAt = action.startsAt;
       if (action.prize !== undefined) t.prize = action.prize;
+      if (action.rules !== undefined) t.rules = action.rules;
       if (action.registrationOpen !== undefined)
         t.registrationOpen = action.registrationOpen;
       return t;
@@ -155,6 +166,8 @@ function applyEventAction(
       t.players = t.players.filter((p) => p.tag !== action.tag);
       return t;
     case "createBracket": {
+      if (t.kind === "cwl")
+        throw new ActionError("CWL events don't have a bracket");
       if (t.bracket) throw new ActionError("The bracket already exists");
       if (t.players.length < 2)
         throw new ActionError("At least 2 players are needed");

@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { DEFAULT_CWL_RULES, seasonLabel } from "./cwl";
 import type { Hub, Tournament } from "./types";
 
 // Everything (clan, rules, events) is one small JSON document. Production uses
@@ -13,19 +14,27 @@ export const DEFAULT_CLAN = "#U0Y0R2GC";
 const FILE = path.join(process.cwd(), ".data", "clancup-hub.json");
 const LEGACY_FILE = path.join(process.cwd(), ".data", "clancup.json");
 
+// General clan rules on the home page. Each event has its own as well.
 export const DEFAULT_RULES = [
+  "Stay in the clan for the whole of any event you've entered.",
+  "Every event has its own rules. Check them on the event page before you play.",
+  "Be respectful to opponents and clanmates.",
+  "Admin decisions are final.",
+];
+
+export const DEFAULT_EVENT_RULES = [
   "Stay in the clan for the whole event. Leaving the clan means you forfeit.",
   "Each game, both players attack each other's base once in a friendly challenge.",
   "A game is won on stars, then destruction %, then the faster attack time.",
   "Win the majority of games to take the match (2 in a best of 3, 3 in a best of 5).",
   "Play your match before the round deadline. A no-show loses by walkover.",
   "Send a screenshot of every attack result to an admin.",
-  "Admin decisions are final.",
 ];
 
 export function newEvent(name: string, id?: string): Tournament {
   return {
     id: id ?? randomUUID().slice(0, 8),
+    kind: "knockout",
     name,
     description: "",
     startsAt: null,
@@ -36,7 +45,21 @@ export function newEvent(name: string, id?: string): Tournament {
     players: [],
     bracket: null,
     results: {},
+    rules: DEFAULT_EVENT_RULES,
+    cwl: null,
     createdAt: new Date().toISOString(),
+  };
+}
+
+export function newCwlEvent(season: string): Tournament {
+  return {
+    ...newEvent(`CWL · ${seasonLabel(season)}`, `cwl-${season}`),
+    kind: "cwl",
+    description: "Clan War League. Results update automatically from the game.",
+    format: 1,
+    maxPlayers: 50,
+    rules: DEFAULT_CWL_RULES,
+    cwl: { season, snapshot: null, syncedAt: null },
   };
 }
 
@@ -48,6 +71,7 @@ export function emptyHub(): Hub {
     // A fixed id: until the first save this event is rebuilt on every read,
     // and pages and registrations refer to it by id in between.
     events: [newEvent("Clan Cup", "clan-cup")],
+    cwlCheckedAt: null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -121,9 +145,18 @@ if revision ~= tonumber(ARGV[1]) then return 0 end
 redis.call('SET', KEYS[1], ARGV[2])
 return 1`;
 
+// Fills in fields added after a document was saved.
+function upgrade(stored: Hub): Hub {
+  const hub = { ...emptyHub(), ...stored };
+  hub.events = hub.events.map((e: Partial<Tournament>) => ({
+    ...newEvent(e.name ?? "Event", e.id),
+    ...e,
+  })) as Tournament[];
+  return hub;
+}
+
 function parse(raw: unknown, legacy: unknown): Hub {
-  if (typeof raw === "string")
-    return { ...emptyHub(), ...(JSON.parse(raw) as Hub) };
+  if (typeof raw === "string") return upgrade(JSON.parse(raw) as Hub);
   if (raw !== null && raw !== undefined)
     throw new StorageError("Invalid stored data");
   // Not saved since events were added: start from the old tournament if any.

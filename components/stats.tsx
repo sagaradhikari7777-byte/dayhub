@@ -1,6 +1,16 @@
 "use client";
 
-import { Crown, Flame, Medal, Star, Target, Timer, Trophy } from "lucide-react";
+import {
+  Crown,
+  Flame,
+  Medal,
+  Star,
+  Swords,
+  Target,
+  Timer,
+  Trophy,
+} from "lucide-react";
+import { placement, playerRecords, standings } from "@/lib/cwl";
 import { useMemo } from "react";
 import { formatDate } from "@/lib/events";
 import {
@@ -16,7 +26,10 @@ import { formatTime } from "./api";
 import { TownHall } from "./register";
 
 export function StatsPage({ state }: Actions) {
-  const events = state.hub.events;
+  const all = state.hub.events;
+  // Knockout numbers only; CWL seasons get their own section.
+  const events = useMemo(() => all.filter((e) => e.kind !== "cwl"), [all]);
+  const seasons = all.filter((e) => e.kind === "cwl" && e.cwl?.snapshot);
   const summaries = useMemo(() => events.map(summarize), [events]);
   const stats = useMemo(() => playerStats(events), [events]);
   const winners = summaries.filter((s) => s.champion);
@@ -56,6 +69,21 @@ export function StatsPage({ state }: Actions) {
           <Highlights stats={played} title="All-time records" />
           <Leaderboard stats={played} title="All-time leaderboard" />
         </>
+      )}
+
+      {seasons.length > 0 && (
+        <section className="section">
+          <div className="section-title">
+            <h2 className="display">
+              <Swords size={22} /> CWL seasons
+            </h2>
+          </div>
+          <div className="panel event-rows">
+            {seasons.map((e) => (
+              <CwlSeasonRow key={e.id} event={e} clanTag={state.hub.clanTag} />
+            ))}
+          </div>
+        </section>
       )}
 
       <section className="section">
@@ -302,5 +330,39 @@ function Leaderboard({
         ))}
       </div>
     </section>
+  );
+}
+
+function CwlSeasonRow({
+  event,
+  clanTag,
+}: {
+  event: Tournament;
+  clanTag: string;
+}) {
+  const snap = event.cwl!.snapshot!;
+  const row = standings(snap).find((r) => r.clan.tag === clanTag);
+  const place = placement(snap, clanTag);
+  const best = playerRecords(snap, clanTag)[0];
+  return (
+    <a className="event-row" href={`#event/${event.id}`}>
+      <div className="row-main">
+        <strong>{event.name}</strong>
+        <span className="muted small">
+          {[
+            row && `${row.wins}–${row.losses} · ${row.stars}★`,
+            best && `Top: ${best.name} (${best.stars}★)`,
+            snap.state !== "ended" && "In progress",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
+      {place && (
+        <span className="chip gold">
+          #{place} of {snap.clans.length}
+        </span>
+      )}
+    </a>
   );
 }

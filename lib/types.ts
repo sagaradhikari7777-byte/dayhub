@@ -30,9 +30,13 @@ export type MatchResult = {
   updatedAt: string;
 };
 
-// One event, e.g. "King of the Hill". Each has its own players and bracket.
+import type { CwlInfo } from "./cwl";
+
+// One event, e.g. "King of the Hill". A knockout event has its own players
+// and bracket; a CWL event tracks a Clan War League season from the API.
 export type Tournament = {
   id: string;
+  kind: "knockout" | "cwl";
   name: string;
   description: string;
   // ISO date (yyyy-mm-dd) or null when not scheduled yet.
@@ -44,6 +48,8 @@ export type Tournament = {
   players: Player[];
   bracket: { order: string[]; createdAt: string } | null;
   results: Record<string, MatchResult>;
+  rules: string[];
+  cwl: CwlInfo | null;
   createdAt: string;
 };
 
@@ -53,6 +59,8 @@ export type Hub = {
   clanTag: string;
   rules: string[];
   events: Tournament[];
+  // Last time the API was asked whether a CWL season is running.
+  cwlCheckedAt: string | null;
   updatedAt: string;
 };
 

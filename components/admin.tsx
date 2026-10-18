@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Plus, Shuffle, Trash2 } from "lucide-react";
+import { LogOut, Plus, RefreshCw, Shuffle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { roundSizes } from "@/lib/bracket";
 import { StatusPill } from "./events";
@@ -46,9 +46,9 @@ export function Admin(actions: Actions) {
         <div className="row-between">
           <h2 className="display">Events</h2>
           <NewEvent
-            onCreate={async (name) => {
-              if (await actions.admin({ type: "createEvent", name })) {
-                notify(`${name} created`);
+            onCreate={async (body, label) => {
+              if (await actions.admin(body)) {
+                notify(`${label} created`);
                 return true;
               }
               return false;
@@ -83,11 +83,15 @@ export function Admin(actions: Actions) {
             admin={eventAdmin}
             notify={notify}
           />
-          <BracketControls
-            event={selected}
-            admin={eventAdmin}
-            notify={notify}
-          />
+          {selected.kind === "cwl" ? (
+            <CwlSync event={selected} {...actions} />
+          ) : (
+            <BracketControls
+              event={selected}
+              admin={eventAdmin}
+              notify={notify}
+            />
+          )}
           <section className="panel danger-zone stack">
             <h2 className="display">Danger zone</h2>
             <div className="actions">
@@ -204,10 +208,12 @@ function Login({ onDone }: { onDone: () => Promise<void> }) {
 function NewEvent({
   onCreate,
 }: {
-  onCreate: (name: string) => Promise<boolean>;
+  onCreate: (body: object, label: string) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<"knockout" | "cwl">("knockout");
   const [name, setName] = useState("");
+  const [season, setSeason] = useState(nextSeason);
   if (!open)
     return (
       <button className="btn primary sm" onClick={() => setOpen(true)}>
@@ -216,31 +222,78 @@ function NewEvent({
     );
   return (
     <form
-      className="inline-form compact"
+      className="new-event panel"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (await onCreate(name)) {
+        const ok =
+          kind === "cwl"
+            ? await onCreate({ type: "createCwlEvent", season }, "CWL event")
+            : await onCreate({ type: "createEvent", name }, name);
+        if (ok) {
           setName("");
           setOpen(false);
         }
       }}
     >
-      <input
-        className="input"
-        placeholder="Event name"
-        autoFocus
-        maxLength={60}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <button className="btn primary sm" disabled={!name.trim()}>
-        Create
-      </button>
-      <button type="button" className="btn sm" onClick={() => setOpen(false)}>
-        Cancel
-      </button>
+      <div className="segmented">
+        <button
+          type="button"
+          className={kind === "knockout" ? "active" : ""}
+          onClick={() => setKind("knockout")}
+        >
+          Knockout
+        </button>
+        <button
+          type="button"
+          className={kind === "cwl" ? "active" : ""}
+          onClick={() => setKind("cwl")}
+        >
+          CWL
+        </button>
+      </div>
+      {kind === "knockout" ? (
+        <input
+          className="input"
+          placeholder="Event name"
+          autoFocus
+          maxLength={60}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      ) : (
+        <label className="field">
+          <span>
+            CWL season. Players can sign up now; results load automatically when
+            the season starts.
+          </span>
+          <input
+            className="input"
+            type="month"
+            value={season}
+            onChange={(e) => setSeason(e.target.value)}
+          />
+        </label>
+      )}
+      <div className="actions">
+        <button
+          className="btn primary sm"
+          disabled={kind === "knockout" ? !name.trim() : !season}
+        >
+          Create
+        </button>
+        <button type="button" className="btn sm" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
     </form>
   );
+}
+
+// CWL starts at the beginning of each month, so default to the next one.
+function nextSeason() {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 type EventAdmin = (body: object) => Promise<boolean>;
@@ -261,6 +314,7 @@ function EventSettings({
     startsAt: t.startsAt ?? "",
     prize: t.prize,
     maxPlayers: String(t.maxPlayers),
+    rules: t.rules.join("\n"),
   });
   const [form, setForm] = useState(initial);
   // While you're editing, background refreshes must not overwrite the form.
@@ -271,7 +325,15 @@ function EventSettings({
       if (!dirty) setForm(initial());
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dirty, t.name, t.description, t.startsAt, t.prize, t.maxPlayers],
+    [
+      dirty,
+      t.name,
+      t.description,
+      t.startsAt,
+      t.prize,
+      t.maxPlayers,
+      t.rules.join("\n"),
+    ],
   );
   const hasResults = Object.keys(t.results).length > 0;
   const set = (patch: Partial<ReturnType<typeof initial>>) => {
@@ -297,6 +359,10 @@ function EventSettings({
               startsAt: form.startsAt || null,
               prize: form.prize,
               maxPlayers: Number(form.maxPlayers),
+              rules: form.rules
+                .split("\n")
+                .map((r) => r.trim())
+                .filter(Boolean),
             })
           ) {
             setDirty(false);
@@ -352,39 +418,58 @@ function EventSettings({
             onChange={(e) => set({ maxPlayers: e.target.value })}
           />
         </label>
-        <div className="field form-submit">
+        <label className="field span-2">
+          <span>
+            Event rules (one per line, shown on the event's Rules tab)
+          </span>
+          <textarea
+            className="input"
+            rows={6}
+            value={form.rules}
+            onChange={(e) => set({ rules: e.target.value })}
+          />
+        </label>
+        <div className="field form-submit span-2">
           <button className="btn primary">Save event</button>
         </div>
       </form>
-      <div className="field">
-        <span>Match format</span>
-        <div className="segmented">
-          {([1, 3, 5] as Format[]).map((f) => (
-            <button
-              key={f}
-              className={t.format === f ? "active" : ""}
-              disabled={hasResults && t.format !== f}
-              onClick={() => admin({ type: "settings", format: f })}
-            >
-              {f === 1 ? "Single game" : `Best of ${f}`}
-            </button>
-          ))}
+      {t.kind === "knockout" && (
+        <div className="field">
+          <span>Match format</span>
+          <div className="segmented">
+            {([1, 3, 5] as Format[]).map((f) => (
+              <button
+                key={f}
+                className={t.format === f ? "active" : ""}
+                disabled={hasResults && t.format !== f}
+                onClick={() => admin({ type: "settings", format: f })}
+              >
+                {f === 1 ? "Single game" : `Best of ${f}`}
+              </button>
+            ))}
+          </div>
+          {hasResults && (
+            <span className="muted small">
+              Locked while results are entered.
+            </span>
+          )}
         </div>
-        {hasResults && (
-          <span className="muted small">Locked while results are entered.</span>
-        )}
-      </div>
+      )}
       <label className="toggle">
         <input
           type="checkbox"
           checked={t.registrationOpen}
-          disabled={Boolean(t.bracket)}
+          disabled={Boolean(t.bracket || t.cwl?.snapshot)}
           onChange={(e) =>
             admin({ type: "settings", registrationOpen: e.target.checked })
           }
         />
         <span className="toggle-track" aria-hidden />
-        <span>Registration open to players</span>
+        <span>
+          {t.kind === "cwl"
+            ? "Sign-ups open (closes when the season starts)"
+            : "Registration open to players"}
+        </span>
       </label>
     </section>
   );
@@ -520,7 +605,7 @@ function ClanAndRules({ state, admin, notify }: Actions) {
           />
         </label>
         <label className="field">
-          <span>Rules (one per line, shown on the home page)</span>
+          <span>General clan rules (one per line, shown on the home page)</span>
           <textarea
             className="input"
             rows={8}
@@ -535,6 +620,52 @@ function ClanAndRules({ state, admin, notify }: Actions) {
           <button className="btn primary">Save clan &amp; rules</button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function CwlSync({
+  event,
+  state,
+  setState,
+  notify,
+}: Actions & { event: Tournament }) {
+  const [busy, setBusy] = useState(false);
+  const snapshot = event.cwl?.snapshot;
+  return (
+    <section className="panel stack">
+      <h2 className="display">CWL data</h2>
+      <p className="muted small">
+        {snapshot
+          ? `Season ${event.cwl!.season}: ${snapshot.clans.length} clans, ${
+              snapshot.rounds.filter((r) => r.length).length
+            } rounds loaded. Last updated ${
+              event.cwl!.syncedAt
+                ? new Date(event.cwl!.syncedAt).toLocaleString()
+                : "never"
+            }.`
+          : `Waiting for season ${event.cwl?.season}. The app checks the game every 20 minutes and fills this event in when CWL starts.`}{" "}
+        {!state.apiConfigured && "The Clash of Clans API key isn't set up."}
+      </p>
+      <div className="actions">
+        <button
+          className="btn"
+          disabled={busy || !state.apiConfigured}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              setState(await request("/api/cwl", { body: {} }));
+              notify("CWL data checked");
+            } catch (e) {
+              notify((e as Error).message, "error");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <RefreshCw size={16} /> {busy ? "Checking…" : "Sync now"}
+        </button>
+      </div>
     </section>
   );
 }

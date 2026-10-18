@@ -4,6 +4,8 @@ import type { Hub, Tournament } from "./types";
 export type EventStatus = "open" | "closed" | "live" | "finished";
 
 export function eventStatus(event: Tournament): EventStatus {
+  if (event.kind === "cwl" && event.cwl?.snapshot)
+    return event.cwl.snapshot.state === "ended" ? "finished" : "live";
   if (event.bracket) {
     const rounds = buildBracket(
       event.bracket.order,

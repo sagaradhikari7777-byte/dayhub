@@ -29,7 +29,7 @@ export class CocError extends Error {
 const cache = new Map<string, { at: number; value: unknown }>();
 const CACHE_MS = 60_000;
 
-async function get<T>(path: string): Promise<T> {
+export async function cocGet<T>(path: string): Promise<T> {
   const token = process.env.COC_API_TOKEN;
   if (!token)
     throw new CocError("The Clash of Clans API is not configured yet", 503);
@@ -138,7 +138,7 @@ export async function findClans(query: string): Promise<ClanSummary[]> {
   const tag = normalizeTag(query);
   if (tag && looksLikeTag(query)) {
     try {
-      return [clanSummary(await get<RawClan>(`/clans/${enc(tag)}`))];
+      return [clanSummary(await cocGet<RawClan>(`/clans/${enc(tag)}`))];
     } catch (error) {
       if (!(error instanceof CocError) || error.status !== 404) throw error;
       if (query.trim().startsWith("#")) return [];
@@ -146,14 +146,14 @@ export async function findClans(query: string): Promise<ClanSummary[]> {
   }
   const name = query.trim();
   if (name.length < 3) return [];
-  const data = await get<{ items: RawClan[] }>(
+  const data = await cocGet<{ items: RawClan[] }>(
     `/clans?name=${encodeURIComponent(name)}&limit=15`,
   );
   return data.items.map(clanSummary);
 }
 
 export async function clanMembers(tag: string) {
-  const clan = await get<RawClan & { memberList?: RawMember[] }>(
+  const clan = await cocGet<RawClan & { memberList?: RawMember[] }>(
     `/clans/${enc(tag)}`,
   );
   return {
@@ -163,7 +163,7 @@ export async function clanMembers(tag: string) {
 }
 
 export async function player(tag: string): Promise<PlayerSummary> {
-  const p = await get<RawPlayer>(`/players/${enc(tag)}`);
+  const p = await cocGet<RawPlayer>(`/players/${enc(tag)}`);
   return {
     ...memberSummary(p),
     clanTag: p.clan?.tag ?? null,

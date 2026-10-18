@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowLeft, CalendarDays, Crown, Gift, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Crown,
+  Gift,
+  Trophy,
+  Users,
+} from "lucide-react";
 import {
   eventStatus,
   eventWinner,
@@ -13,7 +20,9 @@ import type { Tournament } from "@/lib/types";
 import type { Actions, EventActions, EventTab } from "./app";
 import { Bracket } from "./bracket";
 import { Players } from "./players";
+import { CwlView, EventRules } from "./cwl";
 import { EventStats } from "./stats";
+import { placement } from "@/lib/cwl";
 
 export function StatusPill({ event }: { event: Tournament }) {
   const status = eventStatus(event);
@@ -25,7 +34,22 @@ export function StatusPill({ event }: { event: Tournament }) {
   );
 }
 
-export function EventCard({ event }: { event: Tournament }) {
+function cwlPlaceText(event: Tournament, clanTag: string) {
+  const snap = event.cwl!.snapshot!;
+  const place = placement(snap, clanTag);
+  if (!place) return "In the league";
+  return snap.state === "ended"
+    ? `Finished #${place} of ${snap.clans.length}`
+    : `Currently #${place} of ${snap.clans.length}`;
+}
+
+export function EventCard({
+  event,
+  clanTag,
+}: {
+  event: Tournament;
+  clanTag: string;
+}) {
   const status = eventStatus(event);
   const winner = eventWinner(event);
   const winnerName = event.players.find((p) => p.tag === winner)?.name;
@@ -35,7 +59,7 @@ export function EventCard({ event }: { event: Tournament }) {
     <a className={`event-card ${status}`} href={`#event/${event.id}`}>
       <div className="event-card-top">
         <StatusPill event={event} />
-        <span className="muted small">Best of {event.format}</span>
+        <span className="muted small">{formatLabel(event)}</span>
       </div>
       <h3 className="display">{event.name}</h3>
       {event.description && (
@@ -56,7 +80,11 @@ export function EventCard({ event }: { event: Tournament }) {
           <Users size={15} /> {event.players.length}/{event.maxPlayers}
         </span>
       </div>
-      {winnerName ? (
+      {event.cwl?.snapshot ? (
+        <div className="event-winner">
+          <Trophy size={16} /> {cwlPlaceText(event, clanTag)}
+        </div>
+      ) : winnerName ? (
         <div className="event-winner">
           <Crown size={16} /> {winnerName}
         </div>
@@ -88,7 +116,7 @@ export function EventsList({ state }: Actions) {
       {upcoming.length ? (
         <div className="event-grid">
           {upcoming.map((e) => (
-            <EventCard key={e.id} event={e} />
+            <EventCard key={e.id} event={e} clanTag={state.hub.clanTag} />
           ))}
         </div>
       ) : (
@@ -101,7 +129,7 @@ export function EventsList({ state }: Actions) {
           <h2 className="display sub-head">Past events</h2>
           <div className="event-grid">
             {past.map((e) => (
-              <EventCard key={e.id} event={e} />
+              <EventCard key={e.id} event={e} clanTag={state.hub.clanTag} />
             ))}
           </div>
         </>
@@ -110,8 +138,27 @@ export function EventsList({ state }: Actions) {
   );
 }
 
-export function EventPage(props: EventActions & { tab: EventTab }) {
-  const { event, tab } = props;
+function formatLabel(event: Tournament) {
+  return event.kind === "cwl" ? "Clan War League" : `Best of ${event.format}`;
+}
+
+export function EventPage(props: EventActions & { tab: EventTab | null }) {
+  const { event, state } = props;
+  const cwl = event.kind === "cwl";
+  const tabs: [EventTab, string][] = cwl
+    ? [
+        ["overview", "Overview"],
+        ["rounds", "Rounds"],
+        ["players", "Players"],
+        ["rules", "Rules"],
+      ]
+    : [
+        ["bracket", "Bracket"],
+        ["players", `Players · ${event.players.length}`],
+        ["stats", "Stats"],
+        ["rules", "Rules"],
+      ];
+  const tab = tabs.find(([id]) => id === props.tab)?.[0] ?? tabs[0][0];
   const status = eventStatus(event);
   const date = formatDate(event.startsAt);
   const canRegister =
@@ -124,7 +171,7 @@ export function EventPage(props: EventActions & { tab: EventTab }) {
       <section className="event-hero panel">
         <div className="event-hero-top">
           <StatusPill event={event} />
-          <span className="muted small">Best of {event.format}</span>
+          <span className="muted small">{formatLabel(event)}</span>
         </div>
         <h1 className="display">{event.name}</h1>
         {event.description && <p className="muted">{event.description}</p>}
@@ -139,10 +186,16 @@ export function EventPage(props: EventActions & { tab: EventTab }) {
               <Gift size={15} /> {event.prize}
             </span>
           )}
-          <span>
-            <Users size={15} /> {event.players.length} of {event.maxPlayers}{" "}
-            players
-          </span>
+          {cwl && event.cwl?.snapshot ? (
+            <span>
+              <Trophy size={15} /> {cwlPlaceText(event, state.hub.clanTag)}
+            </span>
+          ) : (
+            <span>
+              <Users size={15} /> {event.players.length} of {event.maxPlayers}{" "}
+              {cwl ? "signed up" : "players"}
+            </span>
+          )}
         </div>
         {canRegister && (
           <a className="btn primary" href={`#register/${event.id}`}>
@@ -151,28 +204,30 @@ export function EventPage(props: EventActions & { tab: EventTab }) {
         )}
       </section>
       <div className="segmented wide" role="tablist">
-        {(
-          [
-            ["bracket", "Bracket", ""],
-            ["players", `Players · ${event.players.length}`, "/players"],
-            ["stats", "Stats", "/stats"],
-          ] as const
-        ).map(([id, label, suffix]) => (
+        {tabs.map(([id, label], n) => (
           <a
             key={id}
             role="tab"
             aria-selected={tab === id}
             className={tab === id ? "active" : ""}
-            href={`#event/${event.id}${suffix}`}
+            href={`#event/${event.id}${n ? `/${id}` : ""}`}
           >
             {label}
           </a>
         ))}
       </div>
-      {tab === "bracket" ? (
+      {cwl ? (
+        <CwlView
+          event={event}
+          clanTag={state.hub.clanTag}
+          tab={tab === "bracket" || tab === "stats" ? "overview" : tab}
+        />
+      ) : tab === "bracket" ? (
         <Bracket {...props} />
       ) : tab === "players" ? (
         <Players {...props} />
+      ) : tab === "rules" ? (
+        <EventRules rules={event.rules} />
       ) : (
         <EventStats event={event} />
       )}
