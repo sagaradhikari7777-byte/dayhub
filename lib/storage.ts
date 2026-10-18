@@ -23,9 +23,9 @@ export const DEFAULT_RULES = [
   "Admin decisions are final.",
 ];
 
-export function newEvent(name: string): Tournament {
+export function newEvent(name: string, id?: string): Tournament {
   return {
-    id: randomUUID().slice(0, 8),
+    id: id ?? randomUUID().slice(0, 8),
     name,
     description: "",
     startsAt: null,
@@ -45,7 +45,9 @@ export function emptyHub(): Hub {
     revision: 0,
     clanTag: DEFAULT_CLAN,
     rules: DEFAULT_RULES,
-    events: [newEvent("Clan Cup")],
+    // A fixed id: until the first save this event is rebuilt on every read,
+    // and pages and registrations refer to it by id in between.
+    events: [newEvent("Clan Cup", "clan-cup")],
     updatedAt: new Date().toISOString(),
   };
 }

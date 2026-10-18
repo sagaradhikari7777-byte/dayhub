@@ -152,3 +152,9 @@ test("the old single tournament becomes the first event", () => {
   assert.equal(event.players.length, 1);
   assert.ok(newEvent("x").id !== event.id);
 });
+
+test("an unsaved hub reads back with the same event id", () => {
+  assert.equal(emptyHub().events[0].id, emptyHub().events[0].id);
+  const legacy = JSON.stringify({ name: "Old", players: [] });
+  assert.equal(migrateLegacy(legacy).events[0].id, emptyHub().events[0].id);
+});

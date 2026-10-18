@@ -263,15 +263,21 @@ function EventSettings({
     maxPlayers: String(t.maxPlayers),
   });
   const [form, setForm] = useState(initial);
-  // Pick up changes saved elsewhere (another admin, or after saving).
+  // While you're editing, background refreshes must not overwrite the form.
+  // Otherwise pick up changes saved elsewhere, e.g. by the other admin.
+  const [dirty, setDirty] = useState(false);
   useEffect(
-    () => setForm(initial()),
+    () => {
+      if (!dirty) setForm(initial());
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t.name, t.description, t.startsAt, t.prize, t.maxPlayers],
+    [dirty, t.name, t.description, t.startsAt, t.prize, t.maxPlayers],
   );
   const hasResults = Object.keys(t.results).length > 0;
-  const set = (patch: Partial<ReturnType<typeof initial>>) =>
+  const set = (patch: Partial<ReturnType<typeof initial>>) => {
+    setDirty(true);
     setForm({ ...form, ...patch });
+  };
 
   return (
     <section className="panel stack">
@@ -292,8 +298,10 @@ function EventSettings({
               prize: form.prize,
               maxPlayers: Number(form.maxPlayers),
             })
-          )
+          ) {
+            setDirty(false);
             notify("Event saved");
+          }
         }}
       >
         <label className="field span-2">
@@ -466,10 +474,16 @@ function BracketControls({
 
 function ClanAndRules({ state, admin, notify }: Actions) {
   const hub = state.hub;
+  const savedRules = hub.rules.join("\n");
   const [clanTag, setClanTag] = useState(hub.clanTag);
-  const [rules, setRules] = useState(hub.rules.join("\n"));
-  useEffect(() => setClanTag(hub.clanTag), [hub.clanTag]);
-  useEffect(() => setRules(hub.rules.join("\n")), [hub.rules]);
+  const [rules, setRules] = useState(savedRules);
+  // Same as the event form: don't overwrite what's being typed.
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (dirty) return;
+    setClanTag(hub.clanTag);
+    setRules(savedRules);
+  }, [dirty, hub.clanTag, savedRules]);
   return (
     <section className="panel stack">
       <h2 className="display">Clan &amp; rules</h2>
@@ -486,8 +500,10 @@ function ClanAndRules({ state, admin, notify }: Actions) {
                 .map((r) => r.trim())
                 .filter(Boolean),
             })
-          )
+          ) {
+            setDirty(false);
             notify("Saved");
+          }
         }}
       >
         <label className="field">
@@ -497,7 +513,10 @@ function ClanAndRules({ state, admin, notify }: Actions) {
             value={clanTag}
             autoCapitalize="characters"
             autoCorrect="off"
-            onChange={(e) => setClanTag(e.target.value)}
+            onChange={(e) => {
+              setDirty(true);
+              setClanTag(e.target.value);
+            }}
           />
         </label>
         <label className="field">
@@ -506,7 +525,10 @@ function ClanAndRules({ state, admin, notify }: Actions) {
             className="input"
             rows={8}
             value={rules}
-            onChange={(e) => setRules(e.target.value)}
+            onChange={(e) => {
+              setDirty(true);
+              setRules(e.target.value);
+            }}
           />
         </label>
         <div>
