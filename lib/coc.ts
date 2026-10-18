@@ -66,7 +66,7 @@ async function get<T>(path: string): Promise<T> {
 
 const enc = (tag: string) => encodeURIComponent(tag);
 
-type RawBadge = { small?: string; medium?: string };
+type RawBadge = { small?: string; medium?: string; large?: string };
 type RawClan = {
   tag: string;
   name: string;
@@ -95,6 +95,7 @@ export type ClanSummary = {
   level: number | null;
   members: number | null;
   badge: string | null;
+  badgeLarge: string | null;
   location: string | null;
   description: string | null;
   warWins: number | null;
@@ -118,6 +119,7 @@ const clanSummary = (c: RawClan): ClanSummary => ({
   level: c.clanLevel ?? null,
   members: c.members ?? null,
   badge: c.badgeUrls?.small ?? null,
+  badgeLarge: c.badgeUrls?.large ?? c.badgeUrls?.medium ?? null,
   location: c.location?.name ?? null,
   description: c.description?.trim() || null,
   warWins: c.isWarLogPublic === false ? null : (c.warWins ?? null),

@@ -1,27 +1,73 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Tournament } from "./types";
+import { randomUUID } from "node:crypto";
+import type { Hub, Tournament } from "./types";
 
-// The whole tournament is one small JSON document. Production uses Upstash
-// Redis (the existing Vercel integration); local development uses a file.
+// Everything (clan, rules, events) is one small JSON document. Production uses
+// Upstash Redis (the existing Vercel integration); development uses a file.
 
-const KEY = "clancup:v1:tournament";
+const KEY = "clancup:v2:hub";
+// The single-tournament document from before events existed.
+const LEGACY_KEY = "clancup:v1:tournament";
 export const DEFAULT_CLAN = "#U0Y0R2GC";
-const FILE = path.join(process.cwd(), ".data", "clancup.json");
+const FILE = path.join(process.cwd(), ".data", "clancup-hub.json");
+const LEGACY_FILE = path.join(process.cwd(), ".data", "clancup.json");
 
-export function emptyTournament(): Tournament {
+export const DEFAULT_RULES = [
+  "Stay in the clan for the whole event. Leaving the clan means you forfeit.",
+  "Each game, both players attack each other's base once in a friendly challenge.",
+  "A game is won on stars, then destruction %, then the faster attack time.",
+  "Win the majority of games to take the match (2 in a best of 3, 3 in a best of 5).",
+  "Play your match before the round deadline. A no-show loses by walkover.",
+  "Send a screenshot of every attack result to an admin.",
+  "Admin decisions are final.",
+];
+
+export function newEvent(name: string): Tournament {
   return {
-    revision: 0,
-    name: "Clan Cup",
+    id: randomUUID().slice(0, 8),
+    name,
+    description: "",
+    startsAt: null,
+    prize: "",
     format: 3,
     registrationOpen: true,
     maxPlayers: 64,
-    clanTag: DEFAULT_CLAN,
     players: [],
     bracket: null,
     results: {},
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function emptyHub(): Hub {
+  return {
+    revision: 0,
+    clanTag: DEFAULT_CLAN,
+    rules: DEFAULT_RULES,
+    events: [newEvent("Clan Cup")],
     updatedAt: new Date().toISOString(),
   };
+}
+
+// Turns the old single tournament into the first event, keeping its players
+// and results.
+export function migrateLegacy(raw: string): Hub {
+  const old = JSON.parse(raw) as Partial<Tournament> & { clanTag?: string };
+  const hub = emptyHub();
+  const event = hub.events[0];
+  for (const key of [
+    "name",
+    "format",
+    "registrationOpen",
+    "maxPlayers",
+    "players",
+    "bracket",
+    "results",
+  ] as const)
+    if (old[key] !== undefined) Object.assign(event, { [key]: old[key] });
+  if (old.clanTag) hub.clanTag = old.clanTag;
+  return hub;
 }
 
 function redisEnv() {
@@ -73,30 +119,40 @@ if revision ~= tonumber(ARGV[1]) then return 0 end
 redis.call('SET', KEYS[1], ARGV[2])
 return 1`;
 
-function parse(raw: unknown): Tournament {
-  if (raw === null || raw === undefined) return emptyTournament();
-  if (typeof raw !== "string") throw new StorageError("Invalid stored data");
-  return { ...emptyTournament(), ...(JSON.parse(raw) as Tournament) };
+function parse(raw: unknown, legacy: unknown): Hub {
+  if (typeof raw === "string")
+    return { ...emptyHub(), ...(JSON.parse(raw) as Hub) };
+  if (raw !== null && raw !== undefined)
+    throw new StorageError("Invalid stored data");
+  // Not saved since events were added: start from the old tournament if any.
+  return typeof legacy === "string" ? migrateLegacy(legacy) : emptyHub();
 }
 
-export async function readTournament(): Promise<Tournament> {
-  if (redisEnv()) return parse(await redis(["GET", KEY]));
-  if (process.env.VERCEL)
-    throw new StorageError(
-      "No database connected. Connect Upstash Redis to this Vercel project.",
-    );
+async function readFileOrNull(file: string) {
   try {
-    return parse(await readFile(FILE, "utf8"));
+    return await readFile(file, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT")
-      return emptyTournament();
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
 }
 
+export async function readHub(): Promise<Hub> {
+  if (redisEnv()) {
+    const raw = await redis(["GET", KEY]);
+    return parse(raw, raw === null ? await redis(["GET", LEGACY_KEY]) : null);
+  }
+  if (process.env.VERCEL)
+    throw new StorageError(
+      "No database connected. Connect Upstash Redis to this Vercel project.",
+    );
+  const raw = await readFileOrNull(FILE);
+  return parse(raw, raw === null ? await readFileOrNull(LEGACY_FILE) : null);
+}
+
 let fileQueue: Promise<unknown> = Promise.resolve();
 
-async function write(previous: number, next: Tournament) {
+async function write(previous: number, next: Hub) {
   if (redisEnv()) {
     const ok = await redis([
       "EVAL",
@@ -109,7 +165,7 @@ async function write(previous: number, next: Tournament) {
     if (ok !== 1) throw new ConflictError("Changed by someone else");
     return;
   }
-  const current = await readTournament();
+  const current = await readHub();
   if (current.revision !== previous)
     throw new ConflictError("Changed by someone else");
   await mkdir(path.dirname(FILE), { recursive: true });
@@ -118,12 +174,10 @@ async function write(previous: number, next: Tournament) {
 }
 
 // Applies `change` to the latest state and saves it, retrying on a conflict.
-export async function updateTournament(
-  change: (t: Tournament) => Tournament,
-): Promise<Tournament> {
+export async function updateHub(change: (hub: Hub) => Hub): Promise<Hub> {
   const run = async () => {
     for (let attempt = 0; attempt < 4; attempt++) {
-      const current = await readTournament();
+      const current = await readHub();
       const next = change(structuredClone(current));
       next.revision = current.revision + 1;
       next.updatedAt = new Date().toISOString();

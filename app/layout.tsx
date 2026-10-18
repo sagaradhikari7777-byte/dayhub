@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Lilita_One } from "next/font/google";
 import "./globals.css";
+
+const display = Lilita_One({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-lilita",
+});
+const body = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Clan Cup",
@@ -18,10 +26,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#14161c" },
-    { media: "(prefers-color-scheme: light)", color: "#f5f3ee" },
-  ],
+  themeColor: "#090a12",
 };
 
 export default function RootLayout({
@@ -30,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <a href="#main-content" className="skip-link">
           Skip to content

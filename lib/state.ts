@@ -1,13 +1,11 @@
 import { currentAdmin } from "./auth";
 import { cocConfigured } from "./coc";
 import { storageKind } from "./storage";
-import type { PublicState, Tournament } from "./types";
+import type { Hub, PublicState } from "./types";
 
-export async function publicState(
-  tournament: Tournament,
-): Promise<PublicState> {
+export async function publicState(hub: Hub): Promise<PublicState> {
   return {
-    tournament,
+    hub,
     admin: await currentAdmin(),
     apiConfigured: cocConfigured(),
     storage: storageKind(),

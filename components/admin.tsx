@@ -1,24 +1,35 @@
 "use client";
 
-import { LogOut, Shuffle } from "lucide-react";
+import { LogOut, Plus, Shuffle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { roundSizes } from "@/lib/bracket";
-import type { Format } from "@/lib/types";
+import { StatusPill } from "./events";
+import type { Format, Tournament } from "@/lib/types";
 import type { Actions } from "./app";
 import { request } from "./api";
 
 export function Admin(actions: Actions) {
   const { state, notify } = actions;
+  const events = state.hub.events;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = events.find((e) => e.id === selectedId) ?? events[0] ?? null;
   const reload = async () => actions.setState(await request("/api/tournament"));
 
   if (!state.admin) return <Login onDone={reload} />;
 
+  // Event-level actions carry the selected event's id.
+  const eventAdmin = (body: object) =>
+    actions.admin({ ...body, eventId: selected!.id });
+
   return (
-    <div className="stack">
-      <section className="card section-head">
-        <p>
-          Signed in as <strong>{state.admin}</strong>
-        </p>
+    <div className="page">
+      <div className="page-head row-between">
+        <div>
+          <h1 className="display">Admin</h1>
+          <p className="muted">
+            Signed in as <strong>{state.admin}</strong>
+          </p>
+        </div>
         <button
           className="btn sm"
           onClick={async () => {
@@ -29,11 +40,99 @@ export function Admin(actions: Actions) {
         >
           <LogOut size={14} /> Sign out
         </button>
+      </div>
+
+      <section className="panel stack">
+        <div className="row-between">
+          <h2 className="display">Events</h2>
+          <NewEvent
+            onCreate={async (name) => {
+              if (await actions.admin({ type: "createEvent", name })) {
+                notify(`${name} created`);
+                return true;
+              }
+              return false;
+            }}
+          />
+        </div>
+        {events.length ? (
+          <div className="event-tabs" role="tablist">
+            {events.map((e) => (
+              <button
+                key={e.id}
+                role="tab"
+                aria-selected={selected?.id === e.id}
+                className={selected?.id === e.id ? "active" : ""}
+                onClick={() => setSelectedId(e.id)}
+              >
+                {e.name}
+                <span className="muted small">{e.players.length} players</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No events yet. Create one to open sign-ups.</p>
+        )}
       </section>
-      <Settings {...actions} />
-      <BracketControls {...actions} />
-      <section className="card">
-        <h2>Setup status</h2>
+
+      {selected && (
+        <>
+          <EventSettings
+            key={selected.id}
+            event={selected}
+            admin={eventAdmin}
+            notify={notify}
+          />
+          <BracketControls
+            event={selected}
+            admin={eventAdmin}
+            notify={notify}
+          />
+          <section className="panel danger-zone stack">
+            <h2 className="display">Danger zone</h2>
+            <div className="actions">
+              <button
+                className="btn danger"
+                onClick={async () => {
+                  if (
+                    prompt(
+                      `Type RESET to remove every player and result from ${selected.name}`,
+                    ) === "RESET" &&
+                    (await eventAdmin({ type: "reset" }))
+                  )
+                    notify(`${selected.name} reset`);
+                }}
+              >
+                Reset players &amp; results
+              </button>
+              <button
+                className="btn danger"
+                onClick={async () => {
+                  if (
+                    prompt(
+                      `Type DELETE to delete ${selected.name} for good`,
+                    ) === "DELETE" &&
+                    (await actions.admin({
+                      type: "deleteEvent",
+                      eventId: selected.id,
+                    }))
+                  ) {
+                    setSelectedId(null);
+                    notify("Event deleted");
+                  }
+                }}
+              >
+                <Trash2 size={16} /> Delete event
+              </button>
+            </div>
+          </section>
+        </>
+      )}
+
+      <ClanAndRules {...actions} />
+
+      <section className="panel">
+        <h2 className="display">Setup status</h2>
         <ul className="plain small">
           <li>
             Clash of Clans API:{" "}
@@ -53,25 +152,6 @@ export function Admin(actions: Actions) {
           </li>
         </ul>
       </section>
-      <section className="card danger-zone">
-        <h2>Start over</h2>
-        <p className="muted small">
-          Removes every player, the bracket and all results. Settings stay.
-        </p>
-        <button
-          className="btn danger"
-          onClick={async () => {
-            if (
-              prompt("Type RESET to delete all players and results") ===
-                "RESET" &&
-              (await actions.admin({ type: "reset" }))
-            )
-              notify("Tournament reset");
-          }}
-        >
-          Reset tournament
-        </button>
-      </section>
     </div>
   );
 }
@@ -81,99 +161,192 @@ function Login({ onDone }: { onDone: () => Promise<void> }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <section className="card narrow">
-      <h2>Admin sign-in</h2>
-      <p className="muted small">For organisers who enter match results.</p>
-      <form
-        className="stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          setError(null);
-          try {
-            await request("/api/admin/session", { body: { password } });
-            await onDone();
-          } catch (err) {
-            setError((err as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <input
-          className="input"
-          type="password"
-          autoComplete="current-password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {error && <p className="error-text small">{error}</p>}
-        <button className="btn primary" disabled={busy || !password}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-    </section>
+    <div className="page narrow">
+      <section className="panel stack">
+        <div>
+          <h1 className="display">Admin sign-in</h1>
+          <p className="muted small">For organisers who run events.</p>
+        </div>
+        <form
+          className="stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError(null);
+            try {
+              await request("/api/admin/session", { body: { password } });
+              await onDone();
+            } catch (err) {
+              setError((err as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <input
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && <p className="error-text small">{error}</p>}
+          <button className="btn primary" disabled={busy || !password}>
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }
 
-function Settings({ state, admin, notify }: Actions) {
-  const t = state.tournament;
-  const [name, setName] = useState(t.name);
-  const [max, setMax] = useState(String(t.maxPlayers));
-  useEffect(() => setName(t.name), [t.name]);
-  useEffect(() => setMax(String(t.maxPlayers)), [t.maxPlayers]);
-  const [clan, setClan] = useState(t.clanTag);
-  useEffect(() => setClan(t.clanTag), [t.clanTag]);
+function NewEvent({
+  onCreate,
+}: {
+  onCreate: (name: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  if (!open)
+    return (
+      <button className="btn primary sm" onClick={() => setOpen(true)}>
+        <Plus size={16} /> New event
+      </button>
+    );
+  return (
+    <form
+      className="inline-form compact"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (await onCreate(name)) {
+          setName("");
+          setOpen(false);
+        }
+      }}
+    >
+      <input
+        className="input"
+        placeholder="Event name"
+        autoFocus
+        maxLength={60}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <button className="btn primary sm" disabled={!name.trim()}>
+        Create
+      </button>
+      <button type="button" className="btn sm" onClick={() => setOpen(false)}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
+type EventAdmin = (body: object) => Promise<boolean>;
+type Notify = Actions["notify"];
+
+function EventSettings({
+  event: t,
+  admin,
+  notify,
+}: {
+  event: Tournament;
+  admin: EventAdmin;
+  notify: Notify;
+}) {
+  const initial = () => ({
+    name: t.name,
+    description: t.description,
+    startsAt: t.startsAt ?? "",
+    prize: t.prize,
+    maxPlayers: String(t.maxPlayers),
+  });
+  const [form, setForm] = useState(initial);
+  // Pick up changes saved elsewhere (another admin, or after saving).
+  useEffect(
+    () => setForm(initial()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t.name, t.description, t.startsAt, t.prize, t.maxPlayers],
+  );
   const hasResults = Object.keys(t.results).length > 0;
+  const set = (patch: Partial<ReturnType<typeof initial>>) =>
+    setForm({ ...form, ...patch });
 
   return (
-    <section className="card stack">
-      <h2>Tournament settings</h2>
+    <section className="panel stack">
+      <div className="row-between">
+        <h2 className="display">{t.name}</h2>
+        <StatusPill event={t} />
+      </div>
       <form
-        className="inline-form"
+        className="form-grid"
         onSubmit={async (e) => {
           e.preventDefault();
           if (
             await admin({
               type: "settings",
-              name,
-              maxPlayers: Number(max),
-              clanTag: clan,
+              name: form.name,
+              description: form.description,
+              startsAt: form.startsAt || null,
+              prize: form.prize,
+              maxPlayers: Number(form.maxPlayers),
             })
           )
-            notify("Settings saved");
+            notify("Event saved");
         }}
       >
-        <label className="field grow">
+        <label className="field span-2">
           <span>Name</span>
           <input
             className="input"
-            value={name}
+            value={form.name}
             maxLength={60}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => set({ name: e.target.value })}
+          />
+        </label>
+        <label className="field span-2">
+          <span>Description</span>
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={500}
+            placeholder="e.g. 1v1 knockout, TH16+ only"
+            value={form.description}
+            onChange={(e) => set({ description: e.target.value })}
           />
         </label>
         <label className="field">
-          <span>Clan tag</span>
+          <span>Start date</span>
           <input
-            className="input num"
-            value={clan}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            onChange={(e) => setClan(e.target.value)}
+            className="input"
+            type="date"
+            value={form.startsAt}
+            onChange={(e) => set({ startsAt: e.target.value })}
+          />
+        </label>
+        <label className="field">
+          <span>Prize</span>
+          <input
+            className="input"
+            placeholder="e.g. 4000 RS / $40"
+            maxLength={80}
+            value={form.prize}
+            onChange={(e) => set({ prize: e.target.value })}
           />
         </label>
         <label className="field">
           <span>Max players</span>
           <input
-            className="input num"
+            className="input"
             inputMode="numeric"
-            value={max}
-            onChange={(e) => setMax(e.target.value)}
+            value={form.maxPlayers}
+            onChange={(e) => set({ maxPlayers: e.target.value })}
           />
         </label>
-        <button className="btn">Save</button>
+        <div className="field form-submit">
+          <button className="btn primary">Save event</button>
+        </div>
       </form>
       <div className="field">
         <span>Match format</span>
@@ -202,43 +375,56 @@ function Settings({ state, admin, notify }: Actions) {
             admin({ type: "settings", registrationOpen: e.target.checked })
           }
         />
+        <span className="toggle-track" aria-hidden />
         <span>Registration open to players</span>
       </label>
     </section>
   );
 }
 
-function BracketControls({ state, admin, notify }: Actions) {
-  const t = state.tournament;
+function BracketControls({
+  event: t,
+  admin,
+  notify,
+}: {
+  event: Tournament;
+  admin: EventAdmin;
+  notify: Notify;
+}) {
   const sizes = roundSizes(t.players.length);
   if (t.bracket)
     return (
-      <section className="card stack">
-        <h2>Bracket</h2>
+      <section className="panel stack">
+        <h2 className="display">Bracket</h2>
         <p className="muted small">
           Drawn {new Date(t.bracket.createdAt).toLocaleString()} with{" "}
-          {t.bracket.order.length} players. Open a match on the Bracket tab to
-          enter its result.
+          {t.bracket.order.length} players. Open a match on the{" "}
+          <a className="link" href={`#event/${t.id}`}>
+            event page
+          </a>{" "}
+          to enter its result.
         </p>
-        <button
-          className="btn danger"
-          onClick={async () => {
-            if (
-              confirm(
-                "Delete the bracket and every result? Players stay registered.",
-              ) &&
-              (await admin({ type: "deleteBracket" }))
-            )
-              notify("Bracket deleted");
-          }}
-        >
-          Delete bracket
-        </button>
+        <div className="actions">
+          <button
+            className="btn danger"
+            onClick={async () => {
+              if (
+                confirm(
+                  "Delete the bracket and every result? Players stay registered.",
+                ) &&
+                (await admin({ type: "deleteBracket" }))
+              )
+                notify("Bracket deleted");
+            }}
+          >
+            Delete bracket
+          </button>
+        </div>
       </section>
     );
   return (
-    <section className="card stack">
-      <h2>Draw the bracket</h2>
+    <section className="panel stack">
+      <h2 className="display">Draw the bracket</h2>
       <p className="muted small">
         {t.players.length < 2
           ? "At least 2 players are needed."
@@ -252,7 +438,7 @@ function BracketControls({ state, admin, notify }: Actions) {
           disabled={t.players.length < 2}
           onClick={async () => {
             if (
-              confirm("Draw a random bracket now?") &&
+              confirm(`Draw a random bracket for ${t.name} now?`) &&
               (await admin({ type: "createBracket", shuffle: true }))
             )
               notify("Bracket drawn");
@@ -274,6 +460,59 @@ function BracketControls({ state, admin, notify }: Actions) {
           Registration order
         </button>
       </div>
+    </section>
+  );
+}
+
+function ClanAndRules({ state, admin, notify }: Actions) {
+  const hub = state.hub;
+  const [clanTag, setClanTag] = useState(hub.clanTag);
+  const [rules, setRules] = useState(hub.rules.join("\n"));
+  useEffect(() => setClanTag(hub.clanTag), [hub.clanTag]);
+  useEffect(() => setRules(hub.rules.join("\n")), [hub.rules]);
+  return (
+    <section className="panel stack">
+      <h2 className="display">Clan &amp; rules</h2>
+      <form
+        className="stack"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (
+            await admin({
+              type: "hubSettings",
+              clanTag,
+              rules: rules
+                .split("\n")
+                .map((r) => r.trim())
+                .filter(Boolean),
+            })
+          )
+            notify("Saved");
+        }}
+      >
+        <label className="field">
+          <span>Clan tag (the roster players register from)</span>
+          <input
+            className="input"
+            value={clanTag}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            onChange={(e) => setClanTag(e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>Rules (one per line, shown on the home page)</span>
+          <textarea
+            className="input"
+            rows={8}
+            value={rules}
+            onChange={(e) => setRules(e.target.value)}
+          />
+        </label>
+        <div>
+          <button className="btn primary">Save clan &amp; rules</button>
+        </div>
+      </form>
     </section>
   );
 }

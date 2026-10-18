@@ -1,35 +1,66 @@
 "use client";
 
-import { Lock, Swords, Trophy, UserPlus, Users } from "lucide-react";
+import { CalendarDays, Home as HomeIcon, Lock, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Player, PublicState } from "@/lib/types";
+import type { Player, PublicState, Tournament } from "@/lib/types";
 import { Admin } from "./admin";
 import { request } from "./api";
-import { Bracket } from "./bracket";
-import { Players } from "./players";
+import { EventPage, EventsList } from "./events";
+import { Home } from "./home";
+import { Logo } from "./logo";
 import { Register } from "./register";
 
-type Tab = "bracket" | "register" | "players" | "admin";
-const tabs: { id: Tab; label: string; icon: typeof Trophy }[] = [
-  { id: "bracket", label: "Bracket", icon: Trophy },
-  { id: "register", label: "Register", icon: UserPlus },
-  { id: "players", label: "Players", icon: Users },
-  { id: "admin", label: "Admin", icon: Lock },
-];
+// Hash routes: #/ · #register[/eventId] · #events · #event/id[/players] · #admin
+export type Route =
+  | { page: "home" }
+  | { page: "register"; eventId: string | null }
+  | { page: "events" }
+  | { page: "event"; id: string; tab: "bracket" | "players" }
+  | { page: "admin" };
+
+function parseRoute(hash: string): Route {
+  const [page, id, tab] = hash.replace(/^#\/?/, "").split("/");
+  switch (page) {
+    case "register":
+      return { page: "register", eventId: id || null };
+    case "events":
+      return { page: "events" };
+    case "event":
+      return id
+        ? { page: "event", id, tab: tab === "players" ? "players" : "bracket" }
+        : { page: "events" };
+    case "admin":
+      return { page: "admin" };
+    default:
+      return { page: "home" };
+  }
+}
 
 export type Actions = {
   state: PublicState;
-  players: Map<string, Player>;
   // Runs an admin action; resolves false and shows the error on failure.
   admin: (body: object) => Promise<boolean>;
   setState: (state: PublicState) => void;
   notify: (message: string, tone?: "error" | "ok") => void;
+  go: (hash: string) => void;
 };
+
+export type EventActions = Actions & {
+  event: Tournament;
+  players: Map<string, Player>;
+};
+
+const nav = [
+  { hash: "#/", page: "home", label: "Home", icon: HomeIcon },
+  { hash: "#register", page: "register", label: "Register", icon: UserPlus },
+  { hash: "#events", page: "events", label: "Events", icon: CalendarDays },
+  { hash: "#admin", page: "admin", label: "Admin", icon: Lock },
+] as const;
 
 export function App() {
   const [state, setState] = useState<PublicState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab | null>(null);
+  const [route, setRoute] = useState<Route>({ page: "home" });
   const [toast, setToast] = useState<{ message: string; tone: string } | null>(
     null,
   );
@@ -44,23 +75,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const fromHash = () => {
-      const id = window.location.hash.slice(1) as Tab;
-      if (tabs.some((t) => t.id === id)) setTab(id);
+    const onHash = () => {
+      setRoute(parseRoute(window.location.hash));
+      window.scrollTo({ top: 0 });
     };
-    fromHash();
-    window.addEventListener("hashchange", fromHash);
+    onHash();
+    window.addEventListener("hashchange", onHash);
     load();
     // Live updates while results are entered.
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") load();
     }, 15_000);
-    const onFocus = () => load();
-    window.addEventListener("focus", onFocus);
+    window.addEventListener("focus", load);
     return () => {
       clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("hashchange", fromHash);
+      window.removeEventListener("focus", load);
+      window.removeEventListener("hashchange", onHash);
     };
   }, [load]);
 
@@ -83,88 +113,107 @@ export function App() {
     [load, notify],
   );
 
+  const go = useCallback((hash: string) => {
+    if (window.location.hash === hash) window.scrollTo({ top: 0 });
+    else window.location.hash = hash;
+  }, []);
+
+  const event =
+    route.page === "event" && state
+      ? (state.hub.events.find((e) => e.id === route.id) ?? null)
+      : null;
   const players = useMemo(
-    () => new Map(state?.tournament.players.map((p) => [p.tag, p]) ?? []),
-    [state],
+    () => new Map(event?.players.map((p) => [p.tag, p]) ?? []),
+    [event],
   );
 
-  if (!state)
-    return (
-      <main className="shell center" id="main-content">
-        {loadError ? (
-          <div className="card notice error">
-            <p>{loadError}</p>
-            <button className="btn" onClick={load}>
-              Try again
-            </button>
-          </div>
-        ) : (
-          <p className="muted">Loading tournament…</p>
-        )}
-      </main>
-    );
-
-  const t = state.tournament;
-  const active: Tab = tab ?? (t.bracket ? "bracket" : "register");
-  const select = (id: Tab) => {
-    setTab(id);
-    history.replaceState(null, "", `#${id}`);
-    window.scrollTo({ top: 0 });
-  };
-  const actions: Actions = { state, players, admin, setState, notify };
-  const status = t.bracket
-    ? "Tournament live"
-    : t.registrationOpen
-      ? "Registration open"
-      : "Registration closed";
+  const actions: Actions | null = state
+    ? { state, admin, setState, notify, go }
+    : null;
+  const activeTab = route.page === "event" ? "events" : route.page;
 
   return (
     <>
+      <div className="backdrop" aria-hidden />
       <header className="topbar">
         <div className="shell topbar-inner">
-          <div className="brand">
-            <span className="brand-mark" aria-hidden>
-              <Swords size={18} />
-            </span>
-            <div>
-              <h1>{t.name}</h1>
-              <p className="muted small">
-                {status} · {t.players.length} player
-                {t.players.length === 1 ? "" : "s"} · Best of {t.format}
-              </p>
-            </div>
-          </div>
+          <button
+            className="brand"
+            onClick={() => go("#/")}
+            aria-label="Clan Cup home"
+          >
+            <Logo />
+            <span className="brand-name">Clan Cup</span>
+          </button>
           <nav className="tabs desktop-only" aria-label="Sections">
-            {tabs.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                className={id === active ? "tab active" : "tab"}
-                onClick={() => select(id)}
-                aria-current={id === active ? "page" : undefined}
+            {nav.map(({ hash, page, label, icon: Icon }) => (
+              <a
+                key={page}
+                href={hash}
+                className={page === activeTab ? "tab active" : "tab"}
+                aria-current={page === activeTab ? "page" : undefined}
               >
                 <Icon size={16} /> {label}
-              </button>
+              </a>
             ))}
           </nav>
         </div>
       </header>
+
       <main className="shell content" id="main-content">
-        {active === "bracket" && <Bracket {...actions} />}
-        {active === "register" && <Register {...actions} />}
-        {active === "players" && <Players {...actions} />}
-        {active === "admin" && <Admin {...actions} />}
+        {!actions ? (
+          loadError ? (
+            <div className="panel notice error">
+              <p>{loadError}</p>
+              <button className="btn" onClick={load}>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <div className="loading">
+              <span className="spinner" /> Loading…
+            </div>
+          )
+        ) : route.page === "home" ? (
+          <Home {...actions} />
+        ) : route.page === "register" ? (
+          <Register {...actions} eventId={route.eventId} />
+        ) : route.page === "events" ? (
+          <EventsList {...actions} />
+        ) : route.page === "event" ? (
+          event ? (
+            <EventPage
+              {...actions}
+              event={event}
+              players={players}
+              tab={route.tab}
+              admin={(body) => admin({ ...body, eventId: event.id })}
+            />
+          ) : (
+            <div className="panel notice">
+              <h2>Event not found</h2>
+              <p className="muted">It may have been deleted.</p>
+              <a className="btn" href="#events">
+                All events
+              </a>
+            </div>
+          )
+        ) : (
+          <Admin {...actions} />
+        )}
       </main>
+
       <nav className="bottom-nav mobile-only" aria-label="Sections">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            className={id === active ? "active" : undefined}
-            onClick={() => select(id)}
-            aria-current={id === active ? "page" : undefined}
+        {nav.map(({ hash, page, label, icon: Icon }) => (
+          <a
+            key={page}
+            href={hash}
+            className={page === activeTab ? "active" : undefined}
+            aria-current={page === activeTab ? "page" : undefined}
           >
             <Icon size={20} />
             <span>{label}</span>
-          </button>
+          </a>
         ))}
       </nav>
       {toast && (

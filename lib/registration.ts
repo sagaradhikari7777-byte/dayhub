@@ -5,6 +5,7 @@ import type { Player } from "./types";
 
 export const registration = z.object({
   tag: z.string().max(20),
+  eventId: z.string().min(1).max(40),
   // Only used when the Clash of Clans API isn't configured.
   name: z.string().trim().min(1).max(30).optional(),
   townHallLevel: z.number().int().min(1).max(30).nullable().optional(),

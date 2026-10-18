@@ -1,192 +1,321 @@
 "use client";
 
-import { ArrowLeft, Check, Search, UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  Gift,
+  Search,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 import type { ClanSummary, MemberSummary } from "@/lib/coc";
-import type { PublicState } from "@/lib/types";
+import { formatDate, upcomingEvents } from "@/lib/events";
+import type { Hub, PublicState, Tournament } from "@/lib/types";
 import type { Actions } from "./app";
 import { request } from "./api";
+import { roleLabel, useClan } from "./clan";
 
-export function Register({ state, players, setState, notify }: Actions) {
-  const t = state.tournament;
+// Someone about to be registered: from the roster, a clan search, their tag,
+// or (without the API) typed in by hand.
+type Pending = { tag: string; label: string; body: object };
+
+// Events this person can join right now. Admins can also add to events whose
+// registration is closed, as long as the bracket isn't drawn.
+function eligibleEvents(hub: Hub, isAdmin: boolean) {
+  return upcomingEvents(hub).filter(
+    (e) =>
+      !e.bracket &&
+      (e.registrationOpen || isAdmin) &&
+      e.players.length < e.maxPlayers,
+  );
+}
+
+export function Register({
+  state,
+  setState,
+  notify,
+  go,
+  eventId,
+}: Actions & { eventId: string | null }) {
+  const hub = state.hub;
   const isAdmin = Boolean(state.admin);
-  const open = !t.bracket && (t.registrationOpen || isAdmin);
-  const full = t.players.length >= t.maxPlayers;
+  const eligible = eligibleEvents(hub, isAdmin);
+  const focus = eventId ? hub.events.find((e) => e.id === eventId) : null;
+  const [pending, setPending] = useState<Pending | null>(null);
 
-  const register = async (body: object) => {
-    try {
-      const result = await request<PublicState & { player: { name: string } }>(
-        "/api/register",
-        { body },
-      );
-      setState(result);
-      notify(`${result.player.name} is registered`);
-      return true;
-    } catch (error) {
-      notify((error as Error).message, "error");
-      return false;
-    }
-  };
-
-  if (!state.apiConfigured)
-    return open ? (
-      <ManualForm register={register} />
-    ) : (
-      <Closed bracket={Boolean(t.bracket)} />
-    );
+  const eventsOf = (tag: string) =>
+    upcomingEvents(hub).filter((e) => e.players.some((p) => p.tag === tag));
+  const canJoin = (tag: string) =>
+    eligible.some((e) => !e.players.some((p) => p.tag === tag));
 
   return (
-    <div className="stack">
-      {!open && <Closed bracket={Boolean(t.bracket)} />}
-      {open && !t.registrationOpen && (
-        <p className="card notice small">
-          Registration is closed to the public. You can still add players as an
-          admin.
+    <div className="page">
+      <div className="page-head">
+        <h1 className="display">Register</h1>
+        <p className="muted">
+          {eligible.length
+            ? "Find your account, tap Register and pick your event."
+            : "No event is taking sign-ups right now. You can still see who has registered."}
         </p>
+      </div>
+      {focus && (
+        <div className="panel focus-banner">
+          <span className="muted small">Registering for</span>
+          <strong>{focus.name}</strong>
+          <a className="link small" href="#register">
+            Any event
+          </a>
+        </div>
       )}
-      {open && full && (
-        <p className="card notice error small">
-          The tournament is full ({t.maxPlayers} players).
-        </p>
-      )}
-      <ClanRoster
-        clanTag={t.clanTag}
-        registered={players}
-        register={open && !full ? register : null}
+
+      {state.apiConfigured ? (
+        <>
+          <ClanRoster
+            clanTag={hub.clanTag}
+            eventsOf={eventsOf}
+            canJoin={eligible.length ? canJoin : null}
+            onPick={(m) =>
+              setPending({ tag: m.tag, label: m.name, body: { tag: m.tag } })
+            }
+          />
+          {eligible.length > 0 && (
+            <details className="panel other-ways">
+              <summary>Not in this clan? Register another way</summary>
+              <div className="stack">
+                <TagForm
+                  onPick={(tag) =>
+                    setPending({ tag, label: tag, body: { tag } })
+                  }
+                />
+                <ClanFinder
+                  eventsOf={eventsOf}
+                  onPick={(m) =>
+                    setPending({
+                      tag: m.tag,
+                      label: m.name,
+                      body: { tag: m.tag },
+                    })
+                  }
+                />
+              </div>
+            </details>
+          )}
+        </>
+      ) : eligible.length ? (
+        <ManualForm onPick={setPending} />
+      ) : null}
+
+      <EventChooser
+        pending={pending}
+        events={eligible}
+        preferred={focus?.id ?? null}
+        close={() => setPending(null)}
+        submit={async (event) => {
+          try {
+            const result = await request<
+              PublicState & { player: { name: string } }
+            >("/api/register", {
+              body: { ...pending!.body, eventId: event.id },
+            });
+            setState(result);
+            setPending(null);
+            notify(`${result.player.name} is in ${event.name}!`);
+            if (focus) go(`#event/${event.id}/players`);
+          } catch (error) {
+            notify((error as Error).message, "error");
+          }
+        }}
       />
-      {open && !full && (
-        <details className="card other-ways">
-          <summary>Not in this clan? Register another way</summary>
-          <div className="stack form-gap">
-            <TagForm register={register} />
-            <ClanFinder registered={players} register={register} />
-          </div>
-        </details>
-      )}
     </div>
   );
 }
 
-function Closed({ bracket }: { bracket: boolean }) {
+function EventChooser({
+  pending,
+  events,
+  preferred,
+  close,
+  submit,
+}: {
+  pending: Pending | null;
+  events: Tournament[];
+  preferred: string | null;
+  close: () => void;
+  submit: (event: Tournament) => Promise<void>;
+}) {
+  const [choice, setChoice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const joined = (e: Tournament) =>
+    Boolean(pending && e.players.some((p) => p.tag === pending.tag));
+  const available = events.filter((e) => !joined(e));
+  // Preselect the event the person came from, or the only one available.
+  const selected =
+    available.find((e) => e.id === choice) ??
+    available.find((e) => e.id === preferred) ??
+    (available.length === 1 ? available[0] : null);
+
   return (
-    <section className="card notice">
-      <h2>Registration is closed</h2>
-      <p className="muted">
-        {bracket
-          ? "The bracket has been drawn. Check the Bracket tab for matches."
-          : "The organisers have closed registration for now."}
-      </p>
-    </section>
+    <Dialog.Root
+      open={Boolean(pending)}
+      onOpenChange={(o) => {
+        if (!o) {
+          close();
+          setChoice(null);
+        }
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className="overlay" />
+        <Dialog.Content className="sheet" aria-describedby={undefined}>
+          <div className="sheet-head">
+            <div>
+              <span className="eyebrow">Register</span>
+              <Dialog.Title className="display">{pending?.label}</Dialog.Title>
+            </div>
+            <Dialog.Close className="icon-btn" aria-label="Close">
+              <X size={18} />
+            </Dialog.Close>
+          </div>
+          <p className="muted small">
+            {events.length > 1
+              ? "Which event do you want to play in?"
+              : "Confirm your registration."}
+          </p>
+          <div className="choices" role="radiogroup">
+            {events.map((e) => {
+              const done = joined(e);
+              const date = formatDate(e.startsAt);
+              return (
+                <button
+                  key={e.id}
+                  role="radio"
+                  aria-checked={selected?.id === e.id}
+                  disabled={done}
+                  className={`choice${selected?.id === e.id ? " selected" : ""}`}
+                  onClick={() => setChoice(e.id)}
+                >
+                  <span className="choice-radio">
+                    {done || selected?.id === e.id ? <Check size={14} /> : null}
+                  </span>
+                  <span className="choice-body">
+                    <strong>{e.name}</strong>
+                    <span className="event-meta small">
+                      {date && (
+                        <span>
+                          <CalendarDays size={13} /> {date}
+                        </span>
+                      )}
+                      {e.prize && (
+                        <span>
+                          <Gift size={13} /> {e.prize}
+                        </span>
+                      )}
+                      <span>
+                        <Users size={13} /> {e.players.length}/{e.maxPlayers}
+                      </span>
+                      <span>Best of {e.format}</span>
+                    </span>
+                  </span>
+                  {done && <span className="chip ok">Registered</span>}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            className="btn primary lg"
+            disabled={!selected || busy}
+            onClick={async () => {
+              if (!selected) return;
+              setBusy(true);
+              await submit(selected);
+              setBusy(false);
+              setChoice(null);
+            }}
+          >
+            {busy
+              ? "Registering…"
+              : selected
+                ? `Join ${selected.name}`
+                : available.length
+                  ? "Choose an event"
+                  : "Already registered for every open event"}
+          </button>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
 type Show = "all" | "registered" | "open";
 
-// The home clan's live roster. Everyone sees who has registered; the Register
-// buttons only appear while registration is open.
+// The home clan's live roster. Everyone sees who has registered for what.
 function ClanRoster({
   clanTag,
-  registered,
-  register,
+  eventsOf,
+  canJoin,
+  onPick,
 }: {
   clanTag: string;
-  registered: Map<string, unknown>;
-  register: RegisterFn | null;
+  eventsOf: (tag: string) => Tournament[];
+  canJoin: ((tag: string) => boolean) | null;
+  onPick: (m: MemberSummary) => void;
 }) {
-  const [data, setData] = useState<{
-    clan: ClanSummary;
-    members: MemberSummary[];
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, reload } = useClan(clanTag);
   const [filter, setFilter] = useState("");
   const [show, setShow] = useState<Show>("all");
-  const [busy, setBusy] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      setData(
-        await request(`/api/coc/members?tag=${encodeURIComponent(clanTag)}`),
-      );
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [clanTag]);
-  useEffect(() => {
-    load();
-  }, [load]);
 
   if (error)
     return (
-      <section className="card notice error">
+      <section className="panel notice error">
         <p>Couldn’t load the clan: {error}</p>
-        <button className="btn sm" onClick={load}>
+        <button className="btn sm" onClick={reload}>
           Try again
         </button>
       </section>
     );
   if (!data)
     return (
-      <section className="card">
-        <p className="muted">Loading clan…</p>
-      </section>
+      <div className="loading">
+        <span className="spinner" /> Loading clan…
+      </div>
     );
 
   const { clan, members } = data;
-  const signedUp = members.filter((m) => registered.has(m.tag)).length;
+  const signedUp = members.filter((m) => eventsOf(m.tag).length).length;
   const query = filter.trim().toLowerCase();
   const shown = members.filter(
     (m) =>
       (m.name.toLowerCase().includes(query) ||
         m.tag.toLowerCase().includes(query)) &&
-      (show === "all" || (show === "registered") === registered.has(m.tag)),
+      (show === "all" ||
+        (show === "registered") === eventsOf(m.tag).length > 0),
   );
 
   return (
-    <section className="card">
+    <section className="panel roster">
       <div className="clan-head">
-        {clan.badge && <img src={clan.badge} alt="" width={56} height={56} />}
+        {clan.badge && <img src={clan.badge} alt="" width={52} height={52} />}
         <div className="row-main">
-          <h2>{clan.name}</h2>
+          <h2 className="display">{clan.name}</h2>
           <p className="muted small">
             {clan.tag}
             {clan.level ? ` · Level ${clan.level}` : ""}
             {clan.location ? ` · ${clan.location}` : ""}
           </p>
         </div>
-      </div>
-      {clan.description && (
-        <p className="clan-desc small">{clan.description}</p>
-      )}
-      <div className="clan-facts">
-        <div>
-          <strong>{members.length}</strong>
-          <span className="muted small">members</span>
-        </div>
-        <div>
-          <strong>{signedUp}</strong>
+        <div className="clan-count">
+          <strong>
+            {signedUp}
+            <span>/{members.length}</span>
+          </strong>
           <span className="muted small">registered</span>
         </div>
-        {clan.warWins !== null && (
-          <div>
-            <strong>{clan.warWins}</strong>
-            <span className="muted small">war wins</span>
-          </div>
-        )}
-        {clan.warLeague && clan.warLeague !== "Unranked" && (
-          <div>
-            <strong className="league">{clan.warLeague}</strong>
-            <span className="muted small">war league</span>
-          </div>
-        )}
       </div>
-      <div
-        className="progress"
-        role="progressbar"
-        aria-valuenow={signedUp}
-        aria-valuemax={members.length}
-        aria-label="Members registered"
-      >
+      <div className="meter">
         <span
           style={{
             width: `${members.length ? (signedUp / members.length) * 100 : 0}%`,
@@ -194,18 +323,15 @@ function ClanRoster({
         />
       </div>
 
-      <p className="muted small roster-hint">
-        {register
-          ? "Find your account and tap Register."
-          : "Members of the clan and who has registered."}
-      </p>
       <div className="roster-tools">
-        <input
-          className="input"
-          placeholder="Search name or tag"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+        <label className="search">
+          <Search size={16} />
+          <input
+            placeholder="Search name or tag"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </label>
         <div className="segmented">
           {(
             [
@@ -224,84 +350,57 @@ function ClanRoster({
           ))}
         </div>
       </div>
+
       <ul className="list">
         {shown.map((m) => {
-          const done = registered.has(m.tag);
+          const joined = eventsOf(m.tag);
           return (
-            <li key={m.tag} className="row">
+            <li key={m.tag} className="member">
               <TownHall level={m.townHallLevel} />
               <div className="row-main">
                 <strong>{m.name}</strong>
                 <span className="muted small">
-                  {m.tag} · {roleLabel(m.role)}
+                  {roleLabel(m.role)} · {m.tag}
                 </span>
+                {joined.length > 0 && (
+                  <span className="joined">
+                    {joined.map((e) => (
+                      <span key={e.id} className="chip ok">
+                        <Check size={12} /> {e.name}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </div>
-              {done ? (
-                <span className="chip ok">
-                  <Check size={14} /> Registered
-                </span>
-              ) : register ? (
-                <button
-                  className="btn primary sm"
-                  disabled={busy !== null}
-                  onClick={async () => {
-                    if (!confirm(`Register ${m.name} (${m.tag})?`)) return;
-                    setBusy(m.tag);
-                    await register({ tag: m.tag });
-                    setBusy(null);
-                  }}
-                >
-                  {busy === m.tag ? "…" : "Register"}
+              {canJoin?.(m.tag) && (
+                <button className="btn primary sm" onClick={() => onPick(m)}>
+                  {joined.length ? "+ Event" : "Register"}
                 </button>
-              ) : null}
+              )}
             </li>
           );
         })}
         {!shown.length && (
-          <li className="muted small row">No members match.</li>
+          <li className="muted small member">No members match.</li>
         )}
       </ul>
     </section>
   );
 }
 
-type RegisterFn = (body: object) => Promise<boolean>;
-
 function ClanFinder({
-  registered,
-  register,
+  eventsOf,
+  onPick,
 }: {
-  registered: Map<string, unknown>;
-  register: RegisterFn;
+  eventsOf: (tag: string) => Tournament[];
+  onPick: (m: MemberSummary) => void;
 }) {
   const [query, setQuery] = useState("");
   const [clans, setClans] = useState<ClanSummary[] | null>(null);
   const [clan, setClan] = useState<ClanSummary | null>(null);
   const [members, setMembers] = useState<MemberSummary[]>([]);
-  const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const search = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (query.trim().length < 3) {
-      setError("Type at least 3 characters of the clan name, or its #tag");
-      return;
-    }
-    setBusy("search");
-    setError(null);
-    try {
-      const { clans } = await request<{ clans: ClanSummary[] }>(
-        `/api/coc/clans?q=${encodeURIComponent(query)}`,
-      );
-      setClans(clans);
-      if (clans.length === 1) await openClan(clans[0]);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const openClan = async (c: ClanSummary) => {
     setBusy(c.tag);
@@ -311,7 +410,6 @@ function ClanFinder({
         `/api/coc/members?tag=${encodeURIComponent(c.tag)}`,
       );
       setClan(c);
-      setFilter("");
       setMembers(data.members);
     } catch (e) {
       setError((e as Error).message);
@@ -320,78 +418,56 @@ function ClanFinder({
     }
   };
 
-  const join = async (m: MemberSummary) => {
-    setBusy(m.tag);
-    await register({ tag: m.tag });
-    setBusy(null);
-  };
-
-  if (clan) {
-    const shown = members.filter((m) =>
-      m.name.toLowerCase().includes(filter.trim().toLowerCase()),
-    );
+  if (clan)
     return (
-      <section className="card">
-        <button className="link-btn" onClick={() => setClan(null)}>
-          <ArrowLeft size={16} /> Back to clans
+      <div>
+        <button className="link" onClick={() => setClan(null)}>
+          <ArrowLeft size={14} /> Back to search
         </button>
-        <div className="clan-head">
-          {clan.badge && <img src={clan.badge} alt="" width={44} height={44} />}
-          <div>
-            <h2>{clan.name}</h2>
-            <p className="muted small">
-              {clan.tag} · {members.length} members
-            </p>
-          </div>
-        </div>
-        <p className="muted small">Find your name and tap Register.</p>
-        <input
-          className="input"
-          placeholder="Filter members"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+        <h3 className="sub-title">{clan.name}</h3>
         <ul className="list">
-          {shown.map((m) => {
-            const done = registered.has(m.tag);
-            return (
-              <li key={m.tag} className="row">
-                <TownHall level={m.townHallLevel} />
-                <div className="row-main">
-                  <strong>{m.name}</strong>
-                  <span className="muted small">
-                    {m.tag} · {roleLabel(m.role)}
-                  </span>
-                </div>
-                {done ? (
-                  <span className="chip ok">
-                    <Check size={14} /> Registered
-                  </span>
-                ) : (
-                  <button
-                    className="btn primary sm"
-                    disabled={busy !== null}
-                    onClick={() => join(m)}
-                  >
-                    {busy === m.tag ? "…" : "Register"}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-          {!shown.length && <li className="muted small">No members match.</li>}
+          {members.map((m) => (
+            <li key={m.tag} className="member">
+              <TownHall level={m.townHallLevel} />
+              <div className="row-main">
+                <strong>{m.name}</strong>
+                <span className="muted small">{m.tag}</span>
+              </div>
+              <button className="btn primary sm" onClick={() => onPick(m)}>
+                {eventsOf(m.tag).length ? "+ Event" : "Register"}
+              </button>
+            </li>
+          ))}
         </ul>
-      </section>
+      </div>
     );
-  }
 
   return (
-    <section className="card">
-      <h2>Search another clan</h2>
-      <p className="muted small">
-        Search by clan name or paste the clan tag (for example #2PP).
-      </p>
-      <form className="inline-form" onSubmit={search}>
+    <div>
+      <h3 className="sub-title">Search another clan</h3>
+      <form
+        className="inline-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (query.trim().length < 3) {
+            setError("Type at least 3 characters, or the clan #tag");
+            return;
+          }
+          setBusy("search");
+          setError(null);
+          try {
+            const { clans } = await request<{ clans: ClanSummary[] }>(
+              `/api/coc/clans?q=${encodeURIComponent(query)}`,
+            );
+            setClans(clans);
+            if (clans.length === 1) await openClan(clans[0]);
+          } catch (err) {
+            setError((err as Error).message);
+          } finally {
+            setBusy(null);
+          }
+        }}
+      >
         <input
           className="input"
           placeholder="Clan name or #tag"
@@ -401,20 +477,20 @@ function ClanFinder({
           autoCorrect="off"
           enterKeyHint="search"
         />
-        <button className="btn primary" disabled={busy !== null}>
+        <button className="btn" disabled={busy !== null}>
           <Search size={16} /> {busy === "search" ? "Searching…" : "Search"}
         </button>
       </form>
       {error && <p className="error-text small">{error}</p>}
       {clans && !clans.length && (
-        <p className="muted small">No clans found. Try the clan tag instead.</p>
+        <p className="muted small">No clans found. Try the clan tag.</p>
       )}
       {clans && clans.length > 0 && (
         <ul className="list">
           {clans.map((c) => (
             <li key={c.tag}>
               <button
-                className="row row-btn"
+                className="member member-btn"
                 onClick={() => openClan(c)}
                 disabled={busy !== null}
               >
@@ -427,8 +503,6 @@ function ClanFinder({
                   <strong>{c.name}</strong>
                   <span className="muted small">
                     {c.tag} · {c.members ?? "?"} members
-                    {c.level ? ` · level ${c.level}` : ""}
-                    {c.location ? ` · ${c.location}` : ""}
                   </span>
                 </div>
                 <span className="muted small">
@@ -439,26 +513,24 @@ function ClanFinder({
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 
-function TagForm({ register }: { register: RegisterFn }) {
+function TagForm({ onPick }: { onPick: (tag: string) => void }) {
   const [tag, setTag] = useState("");
-  const [busy, setBusy] = useState(false);
   return (
-    <section>
-      <h2>Register with your player tag</h2>
+    <div>
+      <h3 className="sub-title">Register with your player tag</h3>
       <p className="muted small">
-        Find it in game under your profile, below your name.
+        Find it in game on your profile, under your name.
       </p>
       <form
         className="inline-form"
-        onSubmit={async (e) => {
+        onSubmit={(e) => {
           e.preventDefault();
-          setBusy(true);
-          if (await register({ tag })) setTag("");
-          setBusy(false);
+          onPick(tag.trim());
+          setTag("");
         }}
       >
         <input
@@ -469,37 +541,36 @@ function TagForm({ register }: { register: RegisterFn }) {
           autoCapitalize="characters"
           autoCorrect="off"
         />
-        <button className="btn" disabled={busy || !tag.trim()}>
-          <UserPlus size={16} /> Register
+        <button className="btn" disabled={!tag.trim()}>
+          <UserPlus size={16} /> Continue
         </button>
       </form>
-    </section>
+    </div>
   );
 }
 
-function ManualForm({ register }: { register: RegisterFn }) {
+function ManualForm({ onPick }: { onPick: (p: Pending) => void }) {
   const [form, setForm] = useState({ name: "", tag: "", th: "" });
-  const [busy, setBusy] = useState(false);
   return (
-    <section className="card">
-      <h2>Register for the tournament</h2>
+    <section className="panel">
+      <h2 className="display">Your details</h2>
       <p className="muted small">
-        Clan lookup turns on once the Clash of Clans API key is set up. Until
-        then, enter your details.
+        Clan lookup turns on once the Clash of Clans API key is set up.
       </p>
       <form
         className="stack form-gap"
-        onSubmit={async (e) => {
+        onSubmit={(e) => {
           e.preventDefault();
-          setBusy(true);
           const th = Number(form.th);
-          const ok = await register({
-            name: form.name,
+          onPick({
             tag: form.tag,
-            townHallLevel: form.th && th >= 1 && th <= 30 ? th : null,
+            label: form.name,
+            body: {
+              name: form.name,
+              tag: form.tag,
+              townHallLevel: form.th && th >= 1 && th <= 30 ? th : null,
+            },
           });
-          if (ok) setForm({ name: "", tag: "", th: "" });
-          setBusy(false);
         }}
       >
         <label className="field">
@@ -532,8 +603,8 @@ function ManualForm({ register }: { register: RegisterFn }) {
             onChange={(e) => setForm({ ...form, th: e.target.value })}
           />
         </label>
-        <button className="btn primary" disabled={busy}>
-          <UserPlus size={16} /> Register
+        <button className="btn primary">
+          <UserPlus size={16} /> Continue
         </button>
       </form>
     </section>
@@ -543,20 +614,8 @@ function ManualForm({ register }: { register: RegisterFn }) {
 export function TownHall({ level }: { level: number | null }) {
   return (
     <span className="th" title={level ? `Town Hall ${level}` : "Town Hall"}>
-      {level ? `TH${level}` : "TH?"}
+      <small>TH</small>
+      {level ?? "?"}
     </span>
   );
-}
-
-function roleLabel(role: string | null) {
-  switch (role) {
-    case "leader":
-      return "Leader";
-    case "coLeader":
-      return "Co-leader";
-    case "admin":
-      return "Elder";
-    default:
-      return "Member";
-  }
 }

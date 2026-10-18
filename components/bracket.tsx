@@ -11,13 +11,12 @@ import {
   roundName,
 } from "@/lib/bracket";
 import type { Match, Player } from "@/lib/types";
-import type { Actions } from "./app";
+import type { EventActions } from "./app";
 import { formatTime } from "./api";
 import { MatchEditor } from "./match-editor";
 
-export function Bracket(actions: Actions) {
-  const { state, players } = actions;
-  const t = state.tournament;
+export function Bracket(actions: EventActions) {
+  const { event: t, players } = actions;
   const [openId, setOpenId] = useState<string | null>(null);
   const rounds = useMemo(
     () => (t.bracket ? buildBracket(t.bracket.order, t.results, t.format) : []),
@@ -176,11 +175,12 @@ function MatchDetail({
   match: m,
   rounds,
   state,
+  event,
   players,
   admin,
   notify,
   close,
-}: Actions & { match: Match; rounds: number; close: () => void }) {
+}: EventActions & { match: Match; rounds: number; close: () => void }) {
   const [editing, setEditing] = useState(false);
   const name = (tag: string | null) =>
     tag ? (players.get(tag)?.name ?? tag) : "TBD";
@@ -194,7 +194,7 @@ function MatchDetail({
         <div>
           <span className="muted small">
             {roundName(m.round, rounds)} · Match {m.index + 1} · Best of{" "}
-            {state.tournament.format}
+            {event.format}
           </span>
           <Dialog.Title>
             {name(m.a)} vs {name(m.b)}
@@ -208,7 +208,7 @@ function MatchDetail({
       {editing && m.a && m.b ? (
         <MatchEditor
           match={m}
-          format={state.tournament.format}
+          format={event.format}
           aName={name(m.a)}
           bName={name(m.b)}
           onCancel={() => setEditing(false)}

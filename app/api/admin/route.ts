@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentAdmin } from "@/lib/auth";
 import { errorResponse } from "@/lib/http";
 import { publicState } from "@/lib/state";
-import { updateTournament } from "@/lib/storage";
+import { updateHub } from "@/lib/storage";
 import { adminAction, applyAdminAction } from "@/lib/tournament";
 
 export async function POST(request: Request) {
@@ -16,10 +16,8 @@ export async function POST(request: Request) {
   if (!parsed.success)
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   try {
-    const tournament = await updateTournament((t) =>
-      applyAdminAction(t, parsed.data, admin),
-    );
-    return NextResponse.json(await publicState(tournament));
+    const hub = await updateHub((h) => applyAdminAction(h, parsed.data, admin));
+    return NextResponse.json(await publicState(hub));
   } catch (error) {
     return errorResponse(error);
   }

@@ -12,11 +12,10 @@ import {
   YAxis,
 } from "recharts";
 import { roundSizes } from "@/lib/bracket";
-import type { Actions } from "./app";
+import type { EventActions } from "./app";
 import { TownHall } from "./register";
 
-export function Players({ state, admin }: Actions) {
-  const t = state.tournament;
+export function Players({ state, event: t, admin }: EventActions) {
   const isAdmin = Boolean(state.admin);
   const [filter, setFilter] = useState("");
 

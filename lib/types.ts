@@ -30,17 +30,29 @@ export type MatchResult = {
   updatedAt: string;
 };
 
+// One event, e.g. "King of the Hill". Each has its own players and bracket.
 export type Tournament = {
-  revision: number;
+  id: string;
   name: string;
+  description: string;
+  // ISO date (yyyy-mm-dd) or null when not scheduled yet.
+  startsAt: string | null;
+  prize: string;
   format: Format;
   registrationOpen: boolean;
   maxPlayers: number;
-  // The clan whose roster the Register page opens on.
-  clanTag: string;
   players: Player[];
   bracket: { order: string[]; createdAt: string } | null;
   results: Record<string, MatchResult>;
+  createdAt: string;
+};
+
+export type Hub = {
+  revision: number;
+  // The clan whose roster the Register page opens on.
+  clanTag: string;
+  rules: string[];
+  events: Tournament[];
   updatedAt: string;
 };
 
@@ -74,7 +86,7 @@ export type Match = {
 };
 
 export type PublicState = {
-  tournament: Tournament;
+  hub: Hub;
   admin: string | null;
   apiConfigured: boolean;
   storage: "upstash" | "file";

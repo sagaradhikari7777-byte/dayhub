@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { buildBracket, findMatch, shuffle } from "./bracket";
 import { normalizeTag } from "./coc";
-import type { Player, Tournament } from "./types";
+import { newEvent } from "./storage";
+import type { Hub, Player, Tournament } from "./types";
 
 // Pure state changes. Each throws ActionError with a message for the user.
 
@@ -14,27 +15,51 @@ const attack = z.object({
 });
 const game = z.object({ a: attack, b: attack });
 
+const eventId = z.string().min(1).max(40);
+
 export const adminAction = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("hubSettings"),
+    clanTag: z.string().max(20).optional(),
+    rules: z.array(z.string().trim().min(1).max(300)).max(30).optional(),
+  }),
+  z.object({
+    type: z.literal("createEvent"),
+    name: z.string().trim().min(1).max(60),
+  }),
+  z.object({ type: z.literal("deleteEvent"), eventId }),
+  z.object({
     type: z.literal("settings"),
+    eventId,
     name: z.string().trim().min(1).max(60).optional(),
+    description: z.string().trim().max(500).optional(),
+    startsAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional(),
+    prize: z.string().trim().max(80).optional(),
     format: z.union([z.literal(1), z.literal(3), z.literal(5)]).optional(),
     registrationOpen: z.boolean().optional(),
     maxPlayers: z.number().int().min(2).max(256).optional(),
-    clanTag: z.string().max(20).optional(),
   }),
-  z.object({ type: z.literal("removePlayer"), tag: z.string() }),
-  z.object({ type: z.literal("createBracket"), shuffle: z.boolean() }),
-  z.object({ type: z.literal("deleteBracket") }),
+  z.object({ type: z.literal("removePlayer"), eventId, tag: z.string() }),
+  z.object({
+    type: z.literal("createBracket"),
+    eventId,
+    shuffle: z.boolean(),
+  }),
+  z.object({ type: z.literal("deleteBracket"), eventId }),
   z.object({
     type: z.literal("saveResult"),
+    eventId,
     matchId: z.string(),
     games: z.array(game).max(9),
     walkover: z.enum(["a", "b"]).nullable(),
     note: z.string().trim().max(200),
   }),
-  z.object({ type: z.literal("clearResult"), matchId: z.string() }),
-  z.object({ type: z.literal("reset") }),
+  z.object({ type: z.literal("clearResult"), eventId, matchId: z.string() }),
+  z.object({ type: z.literal("reset"), eventId }),
 ]);
 export type AdminAction = z.infer<typeof adminAction>;
 
@@ -50,11 +75,55 @@ export function addPlayer(t: Tournament, player: Player, byAdmin: boolean) {
   return t;
 }
 
+export function findEvent(hub: Hub, id: string) {
+  const event = hub.events.find((e) => e.id === id);
+  if (!event) throw new ActionError("That event no longer exists");
+  return event;
+}
+
 export function applyAdminAction(
-  t: Tournament,
+  hub: Hub,
   action: AdminAction,
   admin: string,
   random = Math.random,
+): Hub {
+  switch (action.type) {
+    case "hubSettings":
+      if (action.clanTag !== undefined) {
+        const tag = normalizeTag(action.clanTag);
+        if (!tag) throw new ActionError("That isn't a valid clan tag");
+        hub.clanTag = tag;
+      }
+      if (action.rules !== undefined) hub.rules = action.rules;
+      return hub;
+    case "createEvent":
+      if (hub.events.length >= 20)
+        throw new ActionError("Delete an old event first");
+      hub.events.push(newEvent(action.name));
+      return hub;
+    case "deleteEvent":
+      findEvent(hub, action.eventId);
+      hub.events = hub.events.filter((e) => e.id !== action.eventId);
+      return hub;
+    default: {
+      const event = findEvent(hub, action.eventId);
+      const updated = applyEventAction(event, action, admin, random);
+      hub.events = hub.events.map((e) => (e.id === event.id ? updated : e));
+      return hub;
+    }
+  }
+}
+
+type EventAction = Exclude<
+  AdminAction,
+  { type: "hubSettings" | "createEvent" | "deleteEvent" }
+>;
+
+function applyEventAction(
+  t: Tournament,
+  action: EventAction,
+  admin: string,
+  random: () => number,
 ): Tournament {
   switch (action.type) {
     case "settings": {
@@ -72,12 +141,10 @@ export function applyAdminAction(
           );
         t.maxPlayers = action.maxPlayers;
       }
-      if (action.clanTag !== undefined) {
-        const tag = normalizeTag(action.clanTag);
-        if (!tag) throw new ActionError("That isn't a valid clan tag");
-        t.clanTag = tag;
-      }
       if (action.name !== undefined) t.name = action.name;
+      if (action.description !== undefined) t.description = action.description;
+      if (action.startsAt !== undefined) t.startsAt = action.startsAt;
+      if (action.prize !== undefined) t.prize = action.prize;
       if (action.registrationOpen !== undefined)
         t.registrationOpen = action.registrationOpen;
       return t;
