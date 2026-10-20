@@ -287,6 +287,9 @@ function RoundCard({
                     : "Preparation"}
           </span>
         </div>
+        {war.hardMode && (
+          <span className="pill hard center-self">Hard Mode</span>
+        )}
         <div className="war-score">
           <WarSide side={war.clan} teamSize={war.teamSize} align="end" />
           <span className="vs">

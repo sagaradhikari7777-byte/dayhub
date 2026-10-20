@@ -4,6 +4,7 @@ import { emptyHub, migrateLegacy, newEvent } from "../lib/storage";
 import {
   ActionError,
   addPlayer,
+  adminAction,
   applyAdminAction,
   type AdminAction,
 } from "../lib/tournament";
@@ -157,4 +158,31 @@ test("an unsaved hub reads back with the same event id", () => {
   assert.equal(emptyHub().events[0].id, emptyHub().events[0].id);
   const legacy = JSON.stringify({ name: "Old", players: [] });
   assert.equal(migrateLegacy(legacy).events[0].id, emptyHub().events[0].id);
+});
+
+test("results keep the battle mode, normal by default", () => {
+  let hub = act(withPlayers(4), { type: "createBracket", shuffle: false });
+  const attack = { stars: 3, destruction: 100, seconds: null };
+  const lose = { stars: 1, destruction: 40, seconds: null };
+  const body = {
+    type: "saveResult",
+    games: [{ a: attack, b: lose }],
+    walkover: null,
+    note: "",
+  };
+  hub = act(
+    hub,
+    adminAction.parse({ ...body, eventId: hub.events[0].id, matchId: "r0m0" }),
+  );
+  hub = act(
+    hub,
+    adminAction.parse({
+      ...body,
+      eventId: hub.events[0].id,
+      matchId: "r0m1",
+      mode: "hard",
+    }),
+  );
+  assert.equal(hub.events[0].results.r0m0.mode, "normal");
+  assert.equal(hub.events[0].results.r0m1.mode, "hard");
 });

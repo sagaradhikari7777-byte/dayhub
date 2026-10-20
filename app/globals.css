@@ -1444,6 +1444,14 @@ button.match:hover {
   white-space: nowrap;
   font-weight: 600;
 }
+.slot-pct {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.slot.win .slot-pct {
+  color: var(--green);
+}
 .slot-score {
   min-width: 22px;
   text-align: right;
@@ -1467,6 +1475,16 @@ button.match:hover {
 }
 .match-foot.live {
   color: var(--blue);
+}
+.match-foot.hard {
+  color: #f472b6;
+}
+.pill.hard {
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.14);
+}
+.center-self {
+  align-self: center;
 }
 .match-foot.warn {
   color: var(--red);

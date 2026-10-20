@@ -111,6 +111,8 @@ function MatchCard({
     );
   const walkover = m.stale ? null : (m.result?.walkover ?? null);
   const showScore = !walkover && (m.status === "done" || m.status === "live");
+  const showPct = showScore && m.score.games > 0;
+  const hard = !m.stale && m.result?.mode === "hard";
   return (
     <button className={`match ${m.status}`} onClick={onOpen}>
       <Slot
@@ -119,6 +121,7 @@ function MatchCard({
         win={m.winner !== null && m.winner === m.a}
         lose={m.winner !== null && m.winner !== m.a}
         score={showScore ? m.score.aWins : null}
+        pct={showPct ? m.score.aDestruction : null}
         walkover={walkover === "a"}
       />
       <Slot
@@ -127,6 +130,7 @@ function MatchCard({
         win={m.winner !== null && m.winner === m.b}
         lose={m.winner !== null && m.winner !== m.b}
         score={showScore ? m.score.bWins : null}
+        pct={showPct ? m.score.bDestruction : null}
         walkover={walkover === "b"}
       />
       {m.status === "live" && (
@@ -136,6 +140,7 @@ function MatchCard({
         </div>
       )}
       {m.stale && <div className="match-foot warn">Re-enter result</div>}
+      {hard && <div className="match-foot hard">Hard Mode</div>}
     </button>
   );
 }
@@ -146,6 +151,7 @@ function Slot({
   win,
   lose,
   score,
+  pct,
   walkover,
 }: {
   tag: string | null;
@@ -153,6 +159,8 @@ function Slot({
   win?: boolean;
   lose?: boolean;
   score?: number | null;
+  // Average destruction across the games played.
+  pct?: number | null;
   walkover?: boolean;
 }) {
   const p = tag ? players.get(tag) : null;
@@ -163,6 +171,9 @@ function Slot({
       </span>
       {p?.townHallLevel && (
         <span className="muted small">TH{p.townHallLevel}</span>
+      )}
+      {pct !== null && pct !== undefined && (
+        <span className="slot-pct">{pct}%</span>
       )}
       <span className="slot-score">
         {walkover ? "W/O" : score !== null && score !== undefined ? score : ""}
@@ -195,6 +206,7 @@ function MatchDetail({
           <span className="muted small">
             {roundName(m.round, rounds)} · Match {m.index + 1} · Best of{" "}
             {event.format}
+            {result?.mode === "hard" && " · Hard Mode"}
           </span>
           <Dialog.Title>
             {name(m.a)} vs {name(m.b)}
@@ -300,6 +312,15 @@ function MatchDetail({
             <p className="muted small">
               Entered by {result.updatedBy} ·{" "}
               {new Date(result.updatedAt).toLocaleString()}
+            </p>
+          )}
+          {!isAdmin && m.a && m.b && (
+            <p className="muted small">
+              Organisers enter results after signing in under{" "}
+              <a className="link" href="#admin">
+                Admin
+              </a>
+              .
             </p>
           )}
           <div className="actions">

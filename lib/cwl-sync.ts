@@ -34,8 +34,16 @@ export function syncCwl(force = false): Promise<Hub> {
   const job = (async () => {
     const hub = await readHub();
     if (!force && !cwlCheckDue(hub)) return hub;
-    const snapshot = await fetchSnapshot(hub);
-    return updateHub((h) => {
+    let snapshot: CwlSnapshot | null = null;
+    let failure: unknown = null;
+    try {
+      snapshot = await fetchSnapshot(hub);
+    } catch (error) {
+      // Still record the check, so an API outage doesn't make every visit
+      // retry straight away.
+      failure = error;
+    }
+    const saved = await updateHub((h) => {
       h.cwlCheckedAt = new Date().toISOString();
       if (!snapshot) return h;
       let event = h.events.find(
@@ -58,6 +66,8 @@ export function syncCwl(force = false): Promise<Hub> {
       }
       return h;
     });
+    if (failure) throw failure;
+    return saved;
   })();
   running = job.finally(() => (running = null));
   return job;

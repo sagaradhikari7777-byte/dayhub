@@ -33,6 +33,7 @@ export type CwlWar = {
   warTag: string;
   state: "preparation" | "inWar" | "warEnded";
   teamSize: number;
+  hardMode?: boolean;
   startTime: string | null;
   endTime: string | null;
   clan: CwlSide;
@@ -90,6 +91,7 @@ type RawWarClan = {
 };
 export type RawWar = {
   state: string;
+  battleModifier?: string;
   teamSize?: number;
   startTime?: string;
   endTime?: string;
@@ -166,6 +168,7 @@ export function normalizeWar(
         ? raw.state
         : "preparation",
     teamSize: raw.teamSize ?? 15,
+    hardMode: raw.battleModifier === "hardMode",
     startTime: apiTime(raw.startTime),
     endTime: apiTime(raw.endTime),
     clan: side(a, involved),

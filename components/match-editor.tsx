@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { compareGame, seriesWinner, winsNeeded } from "@/lib/bracket";
-import type { Format, Game, Match } from "@/lib/types";
+import type { BattleMode, Format, Game, Match } from "@/lib/types";
 import { formatTime, parseTime } from "./api";
 
 type Draft = { stars: number; destruction: string; time: string };
@@ -55,6 +55,7 @@ export function MatchEditor({
   onSave: (body: {
     games: Game[];
     walkover: "a" | "b" | null;
+    mode: BattleMode;
     note: string;
   }) => Promise<void>;
   onCancel: () => void;
@@ -80,6 +81,7 @@ export function MatchEditor({
   const [walkover, setWalkover] = useState<"a" | "b" | null>(
     saved?.walkover ?? null,
   );
+  const [mode, setMode] = useState<BattleMode>(saved?.mode ?? "normal");
   const [note, setNote] = useState(saved?.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -113,7 +115,7 @@ export function MatchEditor({
       return;
     setBusy(true);
     setError(null);
-    await onSave({ games: walkover ? [] : valid, walkover, note });
+    await onSave({ games: walkover ? [] : valid, walkover, mode, note });
     setBusy(false);
   };
 
@@ -142,6 +144,26 @@ export function MatchEditor({
           </button>
         </div>
       </div>
+
+      {walkover === null && (
+        <div className="field">
+          <span>Battle mode</span>
+          <div className="segmented">
+            <button
+              className={mode === "normal" ? "active" : ""}
+              onClick={() => setMode("normal")}
+            >
+              Normal
+            </button>
+            <button
+              className={mode === "hard" ? "active" : ""}
+              onClick={() => setMode("hard")}
+            >
+              Hard Mode
+            </button>
+          </div>
+        </div>
+      )}
 
       {walkover === null &&
         games.map((g, i) => {

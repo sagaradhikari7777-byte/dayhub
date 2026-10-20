@@ -159,3 +159,13 @@ test("admins can create a CWL event ahead of the season", () => {
   );
   assert.deepEqual(hub.events.at(-1)!.rules, ["Only rule"]);
 });
+
+test("CWL wars flag Hard Mode from the API", () => {
+  const { wars } = fakeCwl();
+  const [tag, raw] = [...wars][0];
+  assert.equal(normalizeWar(tag, raw, OUR_TAG).hardMode, false);
+  assert.equal(
+    normalizeWar(tag, { ...raw, battleModifier: "hardMode" }, OUR_TAG).hardMode,
+    true,
+  );
+});

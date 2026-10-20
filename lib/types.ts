@@ -18,6 +18,9 @@ export type Attack = {
 };
 export type Game = { a: Attack; b: Attack };
 
+// Matches can be played in the game's Hard Mode.
+export type BattleMode = "normal" | "hard";
+
 export type MatchResult = {
   // Players at the time the result was saved. A result whose players no longer
   // match the slot (an earlier result changed) is ignored until re-entered.
@@ -25,6 +28,8 @@ export type MatchResult = {
   b: string;
   games: Game[];
   walkover: "a" | "b" | null;
+  // Missing on results saved before modes existed: treat as normal.
+  mode?: BattleMode;
   note: string;
   updatedBy: string;
   updatedAt: string;
