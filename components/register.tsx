@@ -7,6 +7,7 @@ import {
   Check,
   Gift,
   Search,
+  ShieldCheck,
   UserPlus,
   Users,
   X,
@@ -47,6 +48,8 @@ export function Register({
   const eligible = eligibleEvents(hub, isAdmin);
   const focus = eventId ? hub.events.find((e) => e.id === eventId) : null;
   const [pending, setPending] = useState<Pending | null>(null);
+  // Players prove ownership with their in-game API token; admins don't need to.
+  const needsToken = state.apiConfigured && hub.requireVerification && !isAdmin;
 
   const eventsOf = (tag: string) =>
     upcomingEvents(hub).filter((e) => e.players.some((p) => p.tag === tag));
@@ -115,19 +118,26 @@ export function Register({
         events={eligible}
         preferred={focus?.id ?? null}
         close={() => setPending(null)}
-        submit={async (event) => {
+        needsToken={needsToken}
+        submit={async (event, token) => {
           try {
             const result = await request<
               PublicState & { player: { name: string } }
             >("/api/register", {
-              body: { ...pending!.body, eventId: event.id },
+              body: {
+                ...pending!.body,
+                eventId: event.id,
+                ...(token ? { token } : {}),
+              },
             });
             setState(result);
             setPending(null);
             notify(`${result.player.name} is in ${event.name}!`);
             if (focus) go(`#event/${event.id}/players`);
+            return true;
           } catch (error) {
             notify((error as Error).message, "error");
+            return false;
           }
         }}
       />
@@ -141,14 +151,17 @@ function EventChooser({
   preferred,
   close,
   submit,
+  needsToken,
 }: {
   pending: Pending | null;
   events: Tournament[];
   preferred: string | null;
   close: () => void;
-  submit: (event: Tournament) => Promise<void>;
+  submit: (event: Tournament, token: string) => Promise<boolean>;
+  needsToken: boolean;
 }) {
   const [choice, setChoice] = useState<string | null>(null);
+  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const joined = (e: Tournament) =>
     Boolean(pending && e.players.some((p) => p.tag === pending.tag));
@@ -226,15 +239,49 @@ function EventChooser({
               );
             })}
           </div>
+          {needsToken && available.length > 0 && (
+            <div className="verify">
+              <div className="verify-head">
+                <ShieldCheck size={18} />
+                <strong>Prove it&apos;s your account</strong>
+              </div>
+              <ol className="verify-steps small">
+                <li>Open Clash of Clans and go to Settings.</li>
+                <li>
+                  Tap <b>More Settings</b>, scroll to <b>API Token</b> and tap{" "}
+                  <b>Show</b>.
+                </li>
+                <li>Copy the token and paste it here.</li>
+              </ol>
+              <input
+                className="input"
+                placeholder="API token, e.g. a1b2c3d4"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                autoCapitalize="off"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={40}
+              />
+              <span className="muted small">
+                Only used once to check with Supercell that you own this
+                account. It isn&apos;t saved.
+              </span>
+            </div>
+          )}
           <button
             className="btn primary lg"
-            disabled={!selected || busy}
+            disabled={!selected || busy || (needsToken && !token.trim())}
             onClick={async () => {
               if (!selected) return;
               setBusy(true);
-              await submit(selected);
+              const ok = await submit(selected, token.trim());
               setBusy(false);
-              setChoice(null);
+              if (ok) {
+                setChoice(null);
+                setToken("");
+              }
             }}
           >
             {busy

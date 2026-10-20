@@ -170,3 +170,34 @@ export async function player(tag: string): Promise<PlayerSummary> {
     clanName: p.clan?.name ?? null,
   };
 }
+
+// Proves a person owns the account: players copy a one-time API token from
+// the game (Settings > More Settings > API Token) and Supercell checks it.
+export async function verifyPlayerToken(tag: string, token: string) {
+  const apiToken = process.env.COC_API_TOKEN;
+  if (!apiToken)
+    throw new CocError("The Clash of Clans API is not configured yet", 503);
+  const base = (
+    process.env.COC_API_BASE || "https://cocproxy.royaleapi.dev/v1"
+  ).replace(/\/$/, "");
+  let response: Response;
+  try {
+    response = await fetch(`${base}/players/${enc(tag)}/verifytoken`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw new CocError("Couldn't reach the Clash of Clans API", 502);
+  }
+  if (response.status === 404) throw new CocError("Not found", 404);
+  if (!response.ok)
+    throw new CocError("The Clash of Clans API is unavailable", 502);
+  const body = (await response.json()) as { status?: string };
+  return body.status === "ok";
+}

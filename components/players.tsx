@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { BadgeCheck, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   Bar,
@@ -130,7 +130,14 @@ export function Players({ state, event: t, admin }: EventActions) {
             <li key={p.tag} className="row">
               <TownHall level={p.townHallLevel} />
               <div className="row-main">
-                <strong>{p.name}</strong>
+                <strong>
+                  {p.name}
+                  {p.verified && (
+                    <span className="verified" title="Owner verified">
+                      <BadgeCheck size={15} />
+                    </span>
+                  )}
+                </strong>
                 <span className="muted small">
                   {p.tag}
                   {p.clanName ? ` · ${p.clanName}` : ""}

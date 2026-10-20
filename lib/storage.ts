@@ -71,6 +71,7 @@ export function emptyHub(): Hub {
     revision: 0,
     clanTag: DEFAULT_CLAN,
     rules: DEFAULT_RULES,
+    requireVerification: true,
     // A fixed id: until the first save this event is rebuilt on every read,
     // and pages and registrations refer to it by id in between.
     events: [newEvent("Clan Cup", "clan-cup")],

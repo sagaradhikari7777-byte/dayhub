@@ -572,6 +572,23 @@ function ClanAndRules({ state, admin, notify }: Actions) {
   return (
     <section className="panel stack">
       <h2 className="display">Clan &amp; rules</h2>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={hub.requireVerification}
+          onChange={(e) =>
+            admin({
+              type: "hubSettings",
+              requireVerification: e.target.checked,
+            })
+          }
+        />
+        <span className="toggle-track" aria-hidden />
+        <span>
+          Players must prove they own their account (in-game API token) to
+          register
+        </span>
+      </label>
       <form
         className="stack"
         onSubmit={async (e) => {

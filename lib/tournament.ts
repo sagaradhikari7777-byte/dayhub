@@ -22,6 +22,7 @@ export const adminAction = z.discriminatedUnion("type", [
     type: z.literal("hubSettings"),
     clanTag: z.string().max(20).optional(),
     rules: z.array(z.string().trim().min(1).max(300)).max(30).optional(),
+    requireVerification: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("createEvent"),
@@ -105,6 +106,8 @@ export function applyAdminAction(
         hub.clanTag = tag;
       }
       if (action.rules !== undefined) hub.rules = action.rules;
+      if (action.requireVerification !== undefined)
+        hub.requireVerification = action.requireVerification;
       return hub;
     case "createEvent":
       if (hub.events.length >= 20)

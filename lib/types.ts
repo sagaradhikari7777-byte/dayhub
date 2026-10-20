@@ -8,6 +8,8 @@ export type Player = {
   clanTag: string | null;
   registeredAt: string;
   source: "api" | "manual";
+  // True when they proved ownership with their in-game API token.
+  verified?: boolean;
 };
 
 // One attack each way. Stars, then destruction, then time decides the game.
@@ -63,6 +65,8 @@ export type Hub = {
   // The clan whose roster the Register page opens on.
   clanTag: string;
   rules: string[];
+  // Players must prove they own the account (in-game API token) to register.
+  requireVerification: boolean;
   events: Tournament[];
   // Last time the API was asked whether a CWL season is running.
   cwlCheckedAt: string | null;
