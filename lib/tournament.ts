@@ -325,7 +325,17 @@ function applyTeamsAction(
   if (!info) throw new ActionError("This isn't a team event");
   switch (action.type) {
     case "teamsSettings":
-      if (action.leaders) info.leaders = action.leaders;
+      if (action.leaders) {
+        const tags = action.leaders.map((l) => l.tag).filter(Boolean);
+        if (new Set(tags).size !== tags.length)
+          throw new ActionError("Each team needs a different leader");
+        const playing = t.players.find((p) => tags.includes(p.tag));
+        if (playing)
+          throw new ActionError(
+            `${playing.name} is registered as a player. Remove them from the players list before making them a leader.`,
+          );
+        info.leaders = action.leaders;
+      }
       if (action.teamNames) info.teamNames = action.teamNames;
       if (action.minTownHall !== undefined) {
         if (info.draw)

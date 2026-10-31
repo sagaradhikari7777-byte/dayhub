@@ -1,4 +1,4 @@
-# Clan Cup
+# Voldemort COCEvents
 
 A Clash of Clans knockout tournament app that works on iPhone, Android and desktop.
 
@@ -30,7 +30,7 @@ npm run build
 ## Deploy on Vercel
 
 1. Import this repository into Vercel as a Next.js project.
-2. **Storage:** connect an Upstash Redis database to the project. The existing `together-db` integration works, because Clan Cup only uses the `clancup:v1:tournament` key. Vercel supplies `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL`/`KV_REST_API_TOKEN`.
+2. **Storage:** connect an Upstash Redis database to the project. The existing `together-db` integration works, because the app only uses keys starting with `clancup:` (kept from its first name). Vercel supplies `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL`/`KV_REST_API_TOKEN`.
 3. **Admins:** set `ADMINS` to `Name:password` pairs, separated by commas, for example `Sagar:something-long,Friend:another-long-one`. The name is shown on each result the admin enters. Optionally set `SESSION_SECRET` (`openssl rand -hex 32`).
 4. **Clash of Clans API (free):**
    1. Sign in at https://developer.clashofclans.com with your Supercell ID.

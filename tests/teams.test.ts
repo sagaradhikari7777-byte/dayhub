@@ -230,3 +230,37 @@ test("events created with the team type start with the four leaders", () => {
   assert.equal(e.maxPlayers, 20);
   assert.equal(e.teams!.minTownHall, 18);
 });
+
+test("leaders must be different people and not registered players", () => {
+  const hub = league(2);
+  const e = ev(hub);
+  const leaders = e.teams!.leaders;
+  assert.throws(
+    () =>
+      act(hub, {
+        type: "teamsSettings",
+        leaders: [leaders[0], leaders[0], leaders[2], leaders[3]],
+      }),
+    /different leader/,
+  );
+  assert.throws(
+    () =>
+      act(hub, {
+        type: "teamsSettings",
+        leaders: [{ name: "Player 1", tag: "#P1" }, ...leaders.slice(1)],
+      }),
+    /registered as a player/,
+  );
+  act(hub, {
+    type: "teamsSettings",
+    leaders: [
+      leaders[0],
+      { name: "༺Monkey Đ PaiN༻", tag: "#YVJC9P922" },
+      leaders[2],
+      leaders[3],
+    ],
+  });
+  assert.equal(ev(hub).teams!.leaders[1].tag, "#YVJC9P922");
+  const monkey = { ...player(40), tag: "#YVJC9P922", name: "༺Monkey Đ PaiN༻" };
+  assert.throws(() => addPlayer(ev(hub), monkey, false), /team leader/);
+});

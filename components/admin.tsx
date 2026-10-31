@@ -7,6 +7,7 @@ import { StatusPill } from "./events";
 import type { Format, Tournament } from "@/lib/types";
 import type { Actions } from "./app";
 import { request } from "./api";
+import { useClan } from "./clan";
 
 export function Admin(actions: Actions) {
   const { state, notify } = actions;
@@ -89,6 +90,7 @@ export function Admin(actions: Actions) {
             <TeamsAdmin
               key={selected.id}
               event={selected}
+              clanTag={state.hub.clanTag}
               admin={eventAdmin}
               notify={notify}
             />
@@ -712,15 +714,19 @@ function CwlSync({
 
 function TeamsAdmin({
   event: t,
+  clanTag,
   admin,
   notify,
 }: {
   event: Tournament;
+  clanTag: string;
   admin: EventAdmin;
   notify: Notify;
 }) {
   const info = t.teams!;
-  const [leaders, setLeaders] = useState(info.leaders.map((l) => l.name));
+  // Leaders are picked from the clan, so each is tied to a real account.
+  const roster = useClan(clanTag).data?.members ?? [];
+  const [leaders, setLeaders] = useState(info.leaders);
   const [names, setNames] = useState(info.teamNames);
   const [minTh, setMinTh] = useState(String(info.minTownHall));
   const n = t.players.length;
@@ -737,12 +743,7 @@ function TeamsAdmin({
             await admin({
               type: "teamsSettings",
               teamNames: names,
-              // Keep a leader's tag while their name is unchanged.
-              leaders: leaders.map((name, i) => ({
-                name,
-                tag:
-                  info.leaders[i]?.name === name ? info.leaders[i].tag : null,
-              })),
+              leaders,
               ...(info.draw ? {} : { minTownHall: Number(minTh) }),
             })
           )
@@ -760,17 +761,37 @@ function TeamsAdmin({
                 setNames(names.map((x, j) => (j === i ? e.target.value : x)))
               }
             />
-            <input
+            <select
               className="input"
-              placeholder="Leader"
-              value={leaders[i] ?? ""}
-              maxLength={40}
-              onChange={(e) =>
-                setLeaders(
-                  leaders.map((x, j) => (j === i ? e.target.value : x)),
-                )
-              }
-            />
+              aria-label={`Leader of ${teamName}`}
+              value={leaders[i]?.tag ?? ""}
+              onChange={(e) => {
+                const m = roster.find((x) => x.tag === e.target.value);
+                if (m)
+                  setLeaders(
+                    leaders.map((x, j) =>
+                      j === i ? { name: m.name, tag: m.tag } : x,
+                    ),
+                  );
+              }}
+            >
+              {!leaders[i]?.tag && (
+                <option value="">
+                  {leaders[i]?.name
+                    ? `${leaders[i].name} (not linked, pick from the clan)`
+                    : "Pick a leader"}
+                </option>
+              )}
+              {leaders[i]?.tag &&
+                !roster.some((m) => m.tag === leaders[i].tag) && (
+                  <option value={leaders[i].tag!}>{leaders[i].name}</option>
+                )}
+              {roster.map((m) => (
+                <option key={m.tag} value={m.tag}>
+                  {m.name} · TH{m.townHallLevel ?? "?"}
+                </option>
+              ))}
+            </select>
           </div>
         ))}
         <label className="field">

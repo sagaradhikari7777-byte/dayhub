@@ -179,10 +179,12 @@ export function App() {
           <button
             className="brand"
             onClick={() => go("#/")}
-            aria-label="Clan Cup home"
+            aria-label="Voldemort COCEvents home"
           >
             <Logo />
-            <span className="brand-name">Clan Cup</span>
+            <span className="brand-name">
+              Voldemort <span className="brand-accent">COCEvents</span>
+            </span>
           </button>
           <nav className="tabs desktop-only" aria-label="Sections">
             {nav.map(({ hash, page, label, icon: Icon }) => (

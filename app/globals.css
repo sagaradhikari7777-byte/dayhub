@@ -1,4 +1,4 @@
-/* Clan Cup: dark arena theme with gold accents. */
+/* Voldemort COCEvents: dark arena theme with gold accents. */
 :root {
   --bg: #090a12;
   --bg-2: #0e1020;
@@ -281,6 +281,18 @@ h2.display {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+.brand-name {
+  white-space: nowrap;
+}
+.brand-accent {
+  color: var(--gold);
+  -webkit-text-fill-color: var(--gold);
+}
+@media (max-width: 360px) {
+  .brand-name {
+    font-size: 1.15rem;
+  }
 }
 .tabs {
   display: flex;

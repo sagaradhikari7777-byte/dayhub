@@ -10,14 +10,14 @@ const display = Lilita_One({
 const body = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Clan Cup",
+  title: "Voldemort COCEvents",
   description:
     "Register for the clan tournament, follow the bracket and see every result.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Clan Cup",
+    title: "COCEvents",
   },
   icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
 };

@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Clan Cup",
-  "short_name": "Clan Cup",
+  "name": "Voldemort COCEvents",
+  "short_name": "COCEvents",
   "description": "Clan tournament registration, bracket and results.",
   "start_url": "/",
   "scope": "/",

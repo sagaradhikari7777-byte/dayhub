@@ -45,7 +45,7 @@ export function Home(actions: Actions) {
           )}
           <div className="hero-text">
             <span className="eyebrow">Clan tournaments</span>
-            <h1 className="display">{clan?.name ?? "Clan Cup"}</h1>
+            <h1 className="display">{clan?.name ?? "Voldemort COCEvents"}</h1>
             <p className="muted">
               {clan
                 ? [clan.tag, clan.level && `Level ${clan.level}`, clan.location]
