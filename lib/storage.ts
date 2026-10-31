@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_CWL_RULES, seasonLabel } from "./cwl";
+import { DEFAULT_TEAM_RULES, newTeamsInfo } from "./teams";
 import type { Hub, Tournament } from "./types";
 
 // Everything (clan, rules, events) is one small JSON document. Production uses
@@ -47,7 +48,20 @@ export function newEvent(name: string, id?: string): Tournament {
     results: {},
     rules: DEFAULT_EVENT_RULES,
     cwl: null,
+    teams: null,
     createdAt: new Date().toISOString(),
+  };
+}
+
+export function newTeamsEvent(name: string): Tournament {
+  return {
+    ...newEvent(name),
+    kind: "teams",
+    description:
+      "Four leaders, four teams of five TH18 players drawn at random and balanced by hero and equipment levels. Round robin, then a two-war final.",
+    maxPlayers: 20,
+    rules: DEFAULT_TEAM_RULES,
+    teams: newTeamsInfo(),
   };
 }
 

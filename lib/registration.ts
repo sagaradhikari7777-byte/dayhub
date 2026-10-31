@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  clanMembers,
   cocConfigured,
   CocError,
+  type PlayerSummary,
   normalizeTag,
   player,
   verifyPlayerToken,
@@ -27,6 +29,8 @@ export async function resolvePlayer(
   input: z.infer<typeof registration>,
   // Admins adding someone, or the check switched off.
   skipVerification: boolean,
+  // The home clan, used if the player lookup fails.
+  fallbackClan: string | null = null,
 ): Promise<Player> {
   const tag = normalizeTag(input.tag);
   if (!tag) throw new ActionError("That isn't a valid player tag");
@@ -50,23 +54,42 @@ export async function resolvePlayer(
           "That API token doesn't match this account. Tokens change after use, so copy a fresh one from the game and try again.",
         );
     }
+    let p: PlayerSummary;
     try {
-      const p = await player(tag);
+      p = await player(tag);
+    } catch (error) {
+      if (error instanceof CocError && error.status === 404)
+        throw new ActionError(`No player found with tag ${tag}`);
+      // The player lookup can fail on Supercell's side while the clan list
+      // still works: fall back to the home clan's roster for name and TH.
+      const member =
+        fallbackClan &&
+        (await clanMembers(fallbackClan).catch(() => null))?.members.find(
+          (m) => m.tag === tag,
+        );
+      if (!member) throw error;
       return {
-        tag: p.tag,
-        name: p.name,
-        townHallLevel: p.townHallLevel,
-        clanName: p.clanName,
-        clanTag: p.clanTag,
+        tag,
+        name: member.name,
+        townHallLevel: member.townHallLevel,
+        clanName: null,
+        clanTag: fallbackClan,
         registeredAt,
         source: "api",
         verified,
       };
-    } catch (error) {
-      if (error instanceof CocError && error.status === 404)
-        throw new ActionError(`No player found with tag ${tag}`);
-      throw error;
     }
+    return {
+      tag: p.tag,
+      name: p.name,
+      townHallLevel: p.townHallLevel,
+      clanName: p.clanName,
+      clanTag: p.clanTag,
+      registeredAt,
+      source: "api",
+      verified,
+      strength: p.strength,
+    };
   }
   if (!input.name) throw new ActionError("Enter the player's name");
   return {

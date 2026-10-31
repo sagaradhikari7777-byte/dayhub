@@ -38,16 +38,27 @@ export async function cocGet<T>(path: string): Promise<T> {
   const base = (
     process.env.COC_API_BASE || "https://cocproxy.royaleapi.dev/v1"
   ).replace(/\/$/, "");
-  let response: Response;
-  try {
-    response = await fetch(base + path, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch {
-    throw new CocError("Couldn't reach the Clash of Clans API", 502);
+  // The API (or the proxy) sometimes fails briefly; retry those twice.
+  let response: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, attempt * 400));
+    try {
+      response = await fetch(base + path, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      response = null;
+      continue;
+    }
+    if (response.status < 500) break;
   }
+  if (!response)
+    throw new CocError("Couldn't reach the Clash of Clans API", 502);
   if (response.status === 404) throw new CocError("Not found", 404);
   if (response.status === 403)
     throw new CocError(
@@ -87,7 +98,16 @@ type RawMember = {
   expLevel?: number;
   trophies?: number;
 };
-type RawPlayer = RawMember & { clan?: { tag: string; name: string } };
+type RawHero = {
+  name: string;
+  level: number;
+  village?: string;
+  equipment?: { name: string; level: number }[];
+};
+type RawPlayer = RawMember & {
+  clan?: { tag: string; name: string };
+  heroes?: RawHero[];
+};
 
 export type ClanSummary = {
   tag: string;
@@ -111,6 +131,8 @@ export type MemberSummary = {
 export type PlayerSummary = MemberSummary & {
   clanTag: string | null;
   clanName: string | null;
+  // Home-village hero levels and the equipment currently equipped on them.
+  strength: { heroes: number; equipment: number };
 };
 
 const clanSummary = (c: RawClan): ClanSummary => ({
@@ -168,6 +190,18 @@ export async function player(tag: string): Promise<PlayerSummary> {
     ...memberSummary(p),
     clanTag: p.clan?.tag ?? null,
     clanName: p.clan?.name ?? null,
+    strength: heroStrength(p.heroes ?? []),
+  };
+}
+
+function heroStrength(heroes: RawHero[]) {
+  const home = heroes.filter((h) => (h.village ?? "home") === "home");
+  return {
+    heroes: home.reduce((n, h) => n + h.level, 0),
+    equipment: home.reduce(
+      (n, h) => n + (h.equipment ?? []).reduce((m, e) => m + e.level, 0),
+      0,
+    ),
   };
 }
 

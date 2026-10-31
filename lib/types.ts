@@ -10,6 +10,8 @@ export type Player = {
   source: "api" | "manual";
   // True when they proved ownership with their in-game API token.
   verified?: boolean;
+  // Total hero levels and equipped equipment levels when they registered.
+  strength?: Strength;
 };
 
 // One attack each way. Stars, then destruction, then time decides the game.
@@ -38,12 +40,13 @@ export type MatchResult = {
 };
 
 import type { CwlInfo } from "./cwl";
+import type { Strength, TeamsInfo } from "./teams";
 
 // One event, e.g. "King of the Hill". A knockout event has its own players
 // and bracket; a CWL event tracks a Clan War League season from the API.
 export type Tournament = {
   id: string;
-  kind: "knockout" | "cwl";
+  kind: "knockout" | "cwl" | "teams";
   name: string;
   description: string;
   // ISO date (yyyy-mm-dd) or null when not scheduled yet.
@@ -57,6 +60,7 @@ export type Tournament = {
   results: Record<string, MatchResult>;
   rules: string[];
   cwl: CwlInfo | null;
+  teams: TeamsInfo | null;
   createdAt: string;
 };
 

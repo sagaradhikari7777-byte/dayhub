@@ -635,6 +635,16 @@ input[type="date"].input {
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
 }
+.segmented.wide a {
+  padding-left: 4px;
+  padding-right: 4px;
+  white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .segmented.wide a {
+    font-size: 0.8rem;
+  }
+}
 .segmented button,
 .segmented a {
   border: 0;
@@ -1241,6 +1251,104 @@ input[type="date"].input {
 }
 .choice-body strong {
   font-size: 1rem;
+}
+
+/* Team league */
+.team-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 760px) {
+  .team-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.team-card.champion-team {
+  border-color: rgba(255, 203, 69, 0.5);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+.team-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.team-head strong.display {
+  font-size: 1.3rem;
+}
+.team-head .muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.team-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: #fff;
+}
+.team-badge.sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 0.95rem;
+}
+.team-badge.t0 {
+  background: linear-gradient(180deg, #ef4444, #b91c1c);
+}
+.team-badge.t1 {
+  background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+}
+.team-badge.t2 {
+  background: linear-gradient(180deg, #22c55e, #15803d);
+}
+.team-badge.t3 {
+  background: linear-gradient(180deg, #a855f7, #7e22ce);
+}
+.team-strength {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+}
+.team-strength strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.3rem;
+  color: var(--gold);
+}
+.team-match {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.team-match:hover {
+  border-color: var(--line-strong);
+}
+.row-gap {
+  display: inline-flex;
+  gap: 6px;
+}
+.lb-row.team-row {
+  grid-template-columns: 26px minmax(0, 1fr) 24px 52px 34px;
+}
+@media (min-width: 640px) {
+  .lb-row.team-row {
+    grid-template-columns: 30px minmax(0, 1fr) 36px 72px 76px 44px;
+  }
+}
+.team-setup {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
 }
 
 /* Account verification */
@@ -2049,6 +2157,10 @@ button.match:hover {
     max-height: 88vh;
     animation: fade 0.2s ease-out;
   }
+}
+/* Never squash the sheet's contents: a long form must scroll, not overflow. */
+.sheet > * {
+  flex-shrink: 0;
 }
 .sheet-head {
   display: flex;

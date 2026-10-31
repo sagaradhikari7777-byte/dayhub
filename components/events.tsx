@@ -22,6 +22,8 @@ import { Bracket } from "./bracket";
 import { Players } from "./players";
 import { CwlView, EventRules } from "./cwl";
 import { EventStats } from "./stats";
+import { TeamsView } from "./teams";
+import { leagueView } from "@/lib/teams";
 import { placement, starLeader } from "@/lib/cwl";
 
 export function StatusPill({ event }: { event: Tournament }) {
@@ -106,6 +108,10 @@ export function EventCard({
             <Trophy size={13} /> {cwlPlaceText(event, clanTag)}
           </span>
         </>
+      ) : teamsWinner(event) ? (
+        <div className="event-winner">
+          <Crown size={16} /> {teamsWinner(event)}
+        </div>
       ) : winnerName ? (
         <div className="event-winner">
           <Crown size={16} /> {winnerName}
@@ -123,7 +129,9 @@ export function EventCard({
           : status === "open"
             ? "Register →"
             : status === "live"
-              ? "Follow bracket →"
+              ? event.kind === "teams"
+                ? "Follow the league →"
+                : "Follow bracket →"
               : "View →"}
       </span>
     </a>
@@ -165,12 +173,23 @@ export function EventsList({ state }: Actions) {
 }
 
 function formatLabel(event: Tournament) {
-  return event.kind === "cwl" ? "Clan War League" : `Best of ${event.format}`;
+  if (event.kind === "cwl") return "Clan War League";
+  if (event.kind === "teams")
+    return `Team league · TH${event.teams?.minTownHall ?? 18}+`;
+  return `Best of ${event.format}`;
+}
+
+function teamsWinner(event: Tournament) {
+  if (event.kind !== "teams") return null;
+  const champ = leagueView(event)?.champion ?? null;
+  if (champ === null) return null;
+  return `${event.teams!.teamNames[champ]} · leader ${event.teams!.leaders[champ]?.name}`;
 }
 
 export function EventPage(props: EventActions & { tab: EventTab | null }) {
   const { event, state } = props;
   const cwl = event.kind === "cwl";
+  const teams = event.kind === "teams";
   const tabs: [EventTab, string][] = cwl
     ? [
         ["overview", "Overview"],
@@ -178,12 +197,20 @@ export function EventPage(props: EventActions & { tab: EventTab | null }) {
         ["players", "Players"],
         ["rules", "Rules"],
       ]
-    : [
-        ["bracket", "Bracket"],
-        ["players", `Players · ${event.players.length}`],
-        ["stats", "Stats"],
-        ["rules", "Rules"],
-      ];
+    : teams
+      ? [
+          ["teams", "Teams"],
+          ["matches", "Matches"],
+          ["table", "Table"],
+          ["players", "Players"],
+          ["rules", "Rules"],
+        ]
+      : [
+          ["bracket", "Bracket"],
+          ["players", `Players · ${event.players.length}`],
+          ["stats", "Stats"],
+          ["rules", "Rules"],
+        ];
   const tab = tabs.find(([id]) => id === props.tab)?.[0] ?? tabs[0][0];
   const status = eventStatus(event);
   const date = formatDate(event.startsAt);
@@ -248,7 +275,16 @@ export function EventPage(props: EventActions & { tab: EventTab | null }) {
         <CwlView
           event={event}
           clanTag={state.hub.clanTag}
-          tab={tab === "bracket" || tab === "stats" ? "overview" : tab}
+          tab={
+            tab === "rounds" || tab === "players" || tab === "rules"
+              ? tab
+              : "overview"
+          }
+        />
+      ) : teams && tab !== "players" && tab !== "rules" ? (
+        <TeamsView
+          {...props}
+          tab={tab === "matches" || tab === "table" ? tab : "teams"}
         />
       ) : tab === "bracket" ? (
         <Bracket {...props} />

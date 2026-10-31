@@ -16,6 +16,20 @@ before(async () => {
         const ok = JSON.parse(body).token === "good123";
         return res.end(JSON.stringify({ status: ok ? "ok" : "invalid" }));
       }
+      if (url.startsWith("/v1/players/#9PQGRJ")) {
+        res.statusCode = 500; // Supercell failing for this player
+        return res.end("{}");
+      }
+      if (url.startsWith("/v1/clans/#2YY"))
+        return res.end(
+          JSON.stringify({
+            tag: "#2YY",
+            name: "Home",
+            memberList: [
+              { tag: "#9PQGRJ", name: "From Roster", townHallLevel: 18 },
+            ],
+          }),
+        );
       if (url.startsWith("/v1/players/#2PQGRJ"))
         return res.end(
           JSON.stringify({
@@ -48,4 +62,11 @@ test("admins (or the check switched off) can add without a token", async () => {
   const p = await resolvePlayer(input(), true);
   assert.equal(p.verified, false);
   assert.equal(p.name, "Real One");
+});
+
+test("if the player lookup fails, the clan roster fills in", async () => {
+  const p = await resolvePlayer({ tag: "#9PQGRJ", eventId: "e" }, true, "#2YY");
+  assert.equal(p.name, "From Roster");
+  assert.equal(p.townHallLevel, 18);
+  await assert.rejects(resolvePlayer({ tag: "#9PQGRJ", eventId: "e" }, true));
 });

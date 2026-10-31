@@ -143,7 +143,7 @@ export function Players({ state, event: t, admin }: EventActions) {
                   {p.clanName ? ` · ${p.clanName}` : ""}
                 </span>
               </div>
-              {isAdmin && !t.bracket && (
+              {isAdmin && !t.bracket && !t.teams?.draw && (
                 <button
                   className="icon-btn"
                   aria-label={`Remove ${p.name}`}

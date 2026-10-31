@@ -51,10 +51,11 @@ export async function POST(request: Request) {
     );
   if (limit) limit.attempts++;
   try {
-    const { requireVerification } = await readHub();
+    const { requireVerification, clanTag } = await readHub();
     const player = await resolvePlayer(
       parsed.data,
       Boolean(admin) || !requireVerification,
+      clanTag,
     );
     const hub = await updateHub((h) => {
       addPlayer(findEvent(h, parsed.data.eventId), player, Boolean(admin));

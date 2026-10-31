@@ -22,7 +22,27 @@ import { roleLabel, useClan } from "./clan";
 
 // Someone about to be registered: from the roster, a clan search, their tag,
 // or (without the API) typed in by hand.
-type Pending = { tag: string; label: string; body: object };
+type Pending = {
+  tag: string;
+  label: string;
+  body: object;
+  // Known when picked from a clan roster; used to explain TH limits up front.
+  townHallLevel?: number | null;
+};
+
+// Why this person can't join an event, if they can't.
+function blockedReason(e: Tournament, p: Pending | null) {
+  if (!p || !e.teams) return null;
+  if (e.teams.leaders.some((l) => l.tag === p.tag))
+    return "Team leader: leaders don't register";
+  if (
+    p.townHallLevel !== undefined &&
+    p.townHallLevel !== null &&
+    p.townHallLevel < e.teams.minTownHall
+  )
+    return `TH${e.teams.minTownHall}+ only (TH${p.townHallLevel})`;
+  return null;
+}
 
 // Events this person can join right now. Admins can also add to events whose
 // registration is closed, as long as the bracket isn't drawn.
@@ -83,7 +103,12 @@ export function Register({
             eventsOf={eventsOf}
             canJoin={eligible.length ? canJoin : null}
             onPick={(m) =>
-              setPending({ tag: m.tag, label: m.name, body: { tag: m.tag } })
+              setPending({
+                tag: m.tag,
+                label: m.name,
+                body: { tag: m.tag },
+                townHallLevel: m.townHallLevel,
+              })
             }
           />
           {eligible.length > 0 && (
@@ -165,7 +190,9 @@ function EventChooser({
   const [busy, setBusy] = useState(false);
   const joined = (e: Tournament) =>
     Boolean(pending && e.players.some((p) => p.tag === pending.tag));
-  const available = events.filter((e) => !joined(e));
+  const available = events.filter(
+    (e) => !joined(e) && !blockedReason(e, pending),
+  );
   // Preselect the event the person came from, or the only one available.
   const selected =
     available.find((e) => e.id === choice) ??
@@ -202,13 +229,14 @@ function EventChooser({
           <div className="choices" role="radiogroup">
             {events.map((e) => {
               const done = joined(e);
+              const blocked = blockedReason(e, pending);
               const date = formatDate(e.startsAt);
               return (
                 <button
                   key={e.id}
                   role="radio"
                   aria-checked={selected?.id === e.id}
-                  disabled={done}
+                  disabled={done || Boolean(blocked)}
                   className={`choice${selected?.id === e.id ? " selected" : ""}`}
                   onClick={() => setChoice(e.id)}
                 >
@@ -231,8 +259,15 @@ function EventChooser({
                       <span>
                         <Users size={13} /> {e.players.length}/{e.maxPlayers}
                       </span>
-                      <span>Best of {e.format}</span>
+                      <span>
+                        {e.kind === "teams"
+                          ? `Team league · TH${e.teams?.minTownHall}+`
+                          : `Best of ${e.format}`}
+                      </span>
                     </span>
+                    {blocked && !done && (
+                      <span className="error-text small">{blocked}</span>
+                    )}
                   </span>
                   {done && <span className="chip ok">Registered</span>}
                 </button>

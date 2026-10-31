@@ -11,6 +11,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { placement, playerRecords, standings, starLeader } from "@/lib/cwl";
+import { leagueView } from "@/lib/teams";
 import { useMemo } from "react";
 import { formatDate } from "@/lib/events";
 import {
@@ -28,7 +29,10 @@ import { TownHall } from "./register";
 export function StatsPage({ state }: Actions) {
   const all = state.hub.events;
   // Knockout numbers only; CWL seasons get their own section.
-  const events = useMemo(() => all.filter((e) => e.kind !== "cwl"), [all]);
+  const events = useMemo(() => all.filter((e) => e.kind === "knockout"), [all]);
+  const leagueWinners = all.filter(
+    (e) => e.kind === "teams" && (leagueView(e)?.champion ?? null) !== null,
+  );
   const seasons = all.filter((e) => e.kind === "cwl" && e.cwl?.snapshot);
   const summaries = useMemo(() => events.map(summarize), [events]);
   const stats = useMemo(() => playerStats(events), [events]);
@@ -54,8 +58,11 @@ export function StatsPage({ state }: Actions) {
             <Trophy size={22} /> Hall of champions
           </h2>
         </div>
-        {winners.length || cwlWinners.length ? (
+        {winners.length || cwlWinners.length || leagueWinners.length ? (
           <div className="event-grid">
+            {leagueWinners.map((e) => (
+              <TeamChampionCard key={e.id} event={e} />
+            ))}
             {cwlWinners.map((e) => (
               <CwlChampionCard
                 key={e.id}
@@ -416,4 +423,51 @@ function CwlChampionCard({
       </span>
     </a>
   );
+}
+
+function TeamChampionCard({ event }: { event: Tournament }) {
+  const view = leagueView(event)!;
+  const info = event.teams!;
+  const champ = view.champion!;
+  const runnerUp = view.finalists?.find((t) => t !== champ);
+  const totals = view.finalTotals;
+  return (
+    <a className="champion-card" href={`#event/${event.id}/table`}>
+      <div className="champion-card-top">
+        <span className="eyebrow">{event.name}</span>
+        {event.prize && <span className="chip gold">{event.prize}</span>}
+      </div>
+      <div className="champion-name">
+        <span className="crown">
+          <Crown size={22} />
+        </span>
+        <div className="row-main">
+          <strong className="display">{info.teamNames[champ]}</strong>
+          <span className="muted small">
+            Leader {info.leaders[champ]?.name}
+            {runnerUp !== undefined && totals && view.finalists
+              ? ` · beat ${info.teamNames[runnerUp]} in the final, ${finalMargin(
+                  totals[view.finalists.indexOf(champ)],
+                  totals[view.finalists.indexOf(runnerUp)],
+                )}`
+              : ""}
+          </span>
+        </div>
+      </div>
+      <span className="muted small">
+        {(info.draw?.teams[champ] ?? [])
+          .map((tag) => event.players.find((p) => p.tag === tag)?.name ?? tag)
+          .join(", ")}
+      </span>
+    </a>
+  );
+}
+
+function finalMargin(
+  won: { stars: number; destruction: number },
+  lost: { stars: number; destruction: number },
+) {
+  return won.stars !== lost.stars
+    ? `${won.stars}–${lost.stars}★`
+    : `level on ${won.stars}★, won on destruction (${won.destruction}% vs ${lost.destruction}% combined)`;
 }

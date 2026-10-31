@@ -85,6 +85,13 @@ export function Admin(actions: Actions) {
           />
           {selected.kind === "cwl" ? (
             <CwlSync event={selected} {...actions} />
+          ) : selected.kind === "teams" ? (
+            <TeamsAdmin
+              key={selected.id}
+              event={selected}
+              admin={eventAdmin}
+              notify={notify}
+            />
           ) : (
             <BracketControls
               event={selected}
@@ -211,7 +218,7 @@ function NewEvent({
   onCreate: (body: object, label: string) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<"knockout" | "cwl">("knockout");
+  const [kind, setKind] = useState<"knockout" | "teams" | "cwl">("knockout");
   const [name, setName] = useState("");
   const [season, setSeason] = useState(nextSeason);
   if (!open)
@@ -228,7 +235,9 @@ function NewEvent({
         const ok =
           kind === "cwl"
             ? await onCreate({ type: "createCwlEvent", season }, "CWL event")
-            : await onCreate({ type: "createEvent", name }, name);
+            : kind === "teams"
+              ? await onCreate({ type: "createTeamsEvent", name }, name)
+              : await onCreate({ type: "createEvent", name }, name);
         if (ok) {
           setName("");
           setOpen(false);
@@ -245,13 +254,27 @@ function NewEvent({
         </button>
         <button
           type="button"
+          className={kind === "teams" ? "active" : ""}
+          onClick={() => setKind("teams")}
+        >
+          Team league
+        </button>
+        <button
+          type="button"
           className={kind === "cwl" ? "active" : ""}
           onClick={() => setKind("cwl")}
         >
           CWL
         </button>
       </div>
-      {kind === "knockout" ? (
+      {kind === "teams" && (
+        <span className="muted small">
+          4 leaders, 20 TH18 players drawn into balanced teams of 5, round
+          robin, then a two-war final. Leaders and team names can be changed
+          after creating it.
+        </span>
+      )}
+      {kind !== "cwl" ? (
         <input
           className="input"
           placeholder="Event name"
@@ -277,7 +300,7 @@ function NewEvent({
       <div className="actions">
         <button
           className="btn primary sm"
-          disabled={kind === "knockout" ? !name.trim() : !season}
+          disabled={kind === "cwl" ? !season : !name.trim()}
         >
           Create
         </button>
@@ -457,12 +480,12 @@ function EventSettings({
           )}
         </div>
       )}
-      {t.kind === "knockout" && (
+      {t.kind !== "cwl" && (
         <label className="toggle">
           <input
             type="checkbox"
             checked={t.registrationOpen}
-            disabled={Boolean(t.bracket)}
+            disabled={Boolean(t.bracket || t.teams?.draw)}
             onChange={(e) =>
               admin({ type: "settings", registrationOpen: e.target.checked })
             }
@@ -682,6 +705,124 @@ function CwlSync({
         >
           <RefreshCw size={16} /> {busy ? "Checking…" : "Sync now"}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function TeamsAdmin({
+  event: t,
+  admin,
+  notify,
+}: {
+  event: Tournament;
+  admin: EventAdmin;
+  notify: Notify;
+}) {
+  const info = t.teams!;
+  const [leaders, setLeaders] = useState(info.leaders.map((l) => l.name));
+  const [names, setNames] = useState(info.teamNames);
+  const [minTh, setMinTh] = useState(String(info.minTownHall));
+  const n = t.players.length;
+  const teamCount = info.teamNames.length;
+  const canDraw = !info.draw && n >= teamCount * 2 && n % teamCount === 0;
+  return (
+    <section className="panel stack">
+      <h2 className="display">Teams</h2>
+      <form
+        className="form-grid"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (
+            await admin({
+              type: "teamsSettings",
+              teamNames: names,
+              // Keep a leader's tag while their name is unchanged.
+              leaders: leaders.map((name, i) => ({
+                name,
+                tag:
+                  info.leaders[i]?.name === name ? info.leaders[i].tag : null,
+              })),
+              ...(info.draw ? {} : { minTownHall: Number(minTh) }),
+            })
+          )
+            notify("Teams saved");
+        }}
+      >
+        {names.map((teamName, i) => (
+          <div key={i} className="field team-setup">
+            <span>Team {String.fromCharCode(65 + i)}</span>
+            <input
+              className="input"
+              value={teamName}
+              maxLength={30}
+              onChange={(e) =>
+                setNames(names.map((x, j) => (j === i ? e.target.value : x)))
+              }
+            />
+            <input
+              className="input"
+              placeholder="Leader"
+              value={leaders[i] ?? ""}
+              maxLength={40}
+              onChange={(e) =>
+                setLeaders(
+                  leaders.map((x, j) => (j === i ? e.target.value : x)),
+                )
+              }
+            />
+          </div>
+        ))}
+        <label className="field">
+          <span>Minimum Town Hall</span>
+          <input
+            className="input"
+            inputMode="numeric"
+            value={minTh}
+            disabled={Boolean(info.draw)}
+            onChange={(e) => setMinTh(e.target.value)}
+          />
+        </label>
+        <div className="field form-submit">
+          <button className="btn">Save teams</button>
+        </div>
+      </form>
+      <p className="muted small">
+        {info.draw
+          ? `Teams drawn ${new Date(info.draw.createdAt).toLocaleString()}. See them on the event page.`
+          : `${n} of ${t.maxPlayers} players registered. Drawing fetches everyone's current hero and equipment levels from the game, then deals players into ${teamCount} balanced random teams and closes registration.`}
+      </p>
+      <div className="actions">
+        {info.draw ? (
+          <button
+            className="btn danger"
+            onClick={async () => {
+              if (
+                confirm("Undo the draw? Players stay registered.") &&
+                (await admin({ type: "undoTeamDraw" }))
+              )
+                notify("Draw undone");
+            }}
+          >
+            Undo draw
+          </button>
+        ) : (
+          <button
+            className="btn primary"
+            disabled={!canDraw}
+            onClick={async () => {
+              if (
+                confirm(
+                  `Draw ${teamCount} balanced teams from ${n} players now?`,
+                ) &&
+                (await admin({ type: "drawTeams" }))
+              )
+                notify("Teams drawn");
+            }}
+          >
+            <Shuffle size={16} /> Draw teams
+          </button>
+        )}
       </div>
     </section>
   );

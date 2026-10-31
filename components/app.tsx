@@ -21,7 +21,15 @@ import { StatsPage } from "./stats";
 // · #stats · #admin
 // Knockout events use bracket/players/stats; CWL events overview/rounds/players.
 export type EventTab =
-  "bracket" | "players" | "stats" | "rules" | "overview" | "rounds";
+  | "bracket"
+  | "players"
+  | "stats"
+  | "rules"
+  | "overview"
+  | "rounds"
+  | "teams"
+  | "matches"
+  | "table";
 const eventTabs: EventTab[] = [
   "bracket",
   "players",
@@ -29,6 +37,9 @@ const eventTabs: EventTab[] = [
   "rules",
   "overview",
   "rounds",
+  "teams",
+  "matches",
+  "table",
 ];
 
 export type Route =
