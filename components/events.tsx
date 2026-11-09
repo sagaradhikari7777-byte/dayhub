@@ -24,7 +24,7 @@ import { CwlView, EventRules } from "./cwl";
 import { EventStats } from "./stats";
 import { TeamsView } from "./teams";
 import { leagueView } from "@/lib/teams";
-import { placement, starLeader } from "@/lib/cwl";
+import { placement, seasonFinal, starLeader } from "@/lib/cwl";
 
 export function StatusPill({ event }: { event: Tournament }) {
   const status = eventStatus(event);
@@ -42,7 +42,7 @@ function cwlPlaceText(event: Tournament, clanTag: string) {
   const snap = event.cwl!.snapshot!;
   const place = placement(snap, clanTag);
   if (!place) return "In the league";
-  return snap.state === "ended"
+  return seasonFinal(snap)
     ? `Finished #${place} of ${snap.clans.length}`
     : `Currently #${place} of ${snap.clans.length}`;
 }
@@ -51,7 +51,7 @@ function cwlLeaderText(event: Tournament, clanTag: string) {
   const snap = event.cwl!.snapshot!;
   const top = starLeader(snap, clanTag);
   if (!top) return null;
-  return `${snap.state === "ended" ? "Winner" : "Leading"}: ${top.name} · ${top.stars}★`;
+  return `${seasonFinal(snap) ? "Winner" : "Leading"}: ${top.name} · ${top.stars}★`;
 }
 
 export function EventCard({

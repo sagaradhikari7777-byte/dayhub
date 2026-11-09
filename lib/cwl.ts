@@ -285,8 +285,28 @@ export type CwlPlayer = {
   stars: number;
   threeStars: number;
   destruction: number; // average per attack
-  starsConceded: number;
+  starsConceded: number; // best enemy attack on their base, summed over wars
+  defenses: number; // wars in which their base was attacked
+  fastestThree: number | null; // seconds of their quickest 3-star attack
+  // Place in the star race. Players level on every rule share a place.
+  rank: number;
+  // The rule that put this player below the one above, null for the first
+  // row and for shared places.
+  decidedBy: "stars" | "defense" | "speed" | null;
 };
+
+// The star race order, in the clan's rules:
+// 1. most stars, 2. fewest stars given up on defense, 3. fastest 3-star.
+// Players level on all three share a place; the tag only keeps the list in
+// the same order on every device.
+function compareRecords(a: CwlPlayer, b: CwlPlayer) {
+  return (
+    b.stars - a.stars ||
+    a.starsConceded - b.starsConceded ||
+    (a.fastestThree ?? Infinity) - (b.fastestThree ?? Infinity) ||
+    0
+  );
+}
 
 export function playerRecords(s: CwlSnapshot, ourTag: string): CwlPlayer[] {
   const rows = new Map<string, CwlPlayer & { destructionSum: number }>();
@@ -314,22 +334,34 @@ export function playerRecords(s: CwlSnapshot, ourTag: string): CwlPlayer[] {
           destruction: 0,
           destructionSum: 0,
           starsConceded: 0,
+          defenses: 0,
+          fastestThree: null,
+          rank: 0,
+          decidedBy: null,
         };
         rows.set(m.tag, row);
       }
       row.name = m.name;
       row.townHallLevel = m.townHallLevel ?? row.townHallLevel;
       row.wars++;
-      row.starsConceded += conceded.get(m.tag) ?? 0;
+      if (conceded.has(m.tag)) {
+        row.defenses++;
+        row.starsConceded += conceded.get(m.tag)!;
+      }
       if (m.attack) {
         row.attacks++;
         row.stars += m.attack.stars;
         row.destructionSum += m.attack.destruction;
-        if (m.attack.stars === 3) row.threeStars++;
+        if (m.attack.stars === 3) {
+          row.threeStars++;
+          const t = m.attack.duration;
+          if (t !== null && (row.fastestThree === null || t < row.fastestThree))
+            row.fastestThree = t;
+        }
       } else if (war.state === "warEnded") row.missed++;
     }
   }
-  return [...rows.values()]
+  const sorted: CwlPlayer[] = [...rows.values()]
     .map(({ destructionSum, ...r }) => ({
       ...r,
       destruction: r.attacks
@@ -338,12 +370,44 @@ export function playerRecords(s: CwlSnapshot, ourTag: string): CwlPlayer[] {
     }))
     .sort(
       (a, b) =>
-        b.stars - a.stars ||
-        b.destruction - a.destruction ||
-        a.missed - b.missed ||
-        a.name.localeCompare(b.name),
+        compareRecords(a, b) || (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0),
     );
+  sorted.forEach((row, i) => {
+    const above = sorted[i - 1];
+    if (!above) {
+      row.rank = 1;
+      return;
+    }
+    if (compareRecords(above, row) === 0) {
+      row.rank = above.rank;
+      return;
+    }
+    row.rank = i + 1;
+    row.decidedBy =
+      above.stars !== row.stars
+        ? "stars"
+        : above.starsConceded !== row.starsConceded
+          ? "defense"
+          : "speed";
+  });
+  return sorted;
 }
+
+// True once every war of every round has ended: the standings can't change.
+export function seasonFinal(s: CwlSnapshot) {
+  if (s.state === "ended") return true;
+  return (
+    s.rounds.length > 0 &&
+    s.rounds.every(
+      (r) => r.length > 0 && r.every((w) => w.state === "warEnded"),
+    )
+  );
+}
+
+// Seasons come as "2026-11" from the admin form and may carry a day from the
+// game ("2026-11-01"); they're the same season.
+export const sameSeason = (a: string, b: string) =>
+  a.slice(0, 7) === b.slice(0, 7);
 
 export function placement(s: CwlSnapshot, ourTag: string) {
   const index = standings(s).findIndex((r) => r.clan.tag === ourTag);
@@ -357,9 +421,12 @@ export function starLeader(s: CwlSnapshot, ourTag: string) {
   return top && top.stars > 0 ? top : null;
 }
 
+export const CWL_RANKING_RULE =
+  "Prizes go to the top of the star race. Places are decided in this order: 1) most stars across the whole CWL, 2) fewest stars given up on defense (the best attack on your base in each war), 3) fastest 3-star attack. Players level on all three share the place.";
+
 export const DEFAULT_CWL_RULES = [
   "No sign-up needed. The lineup comes straight from the game.",
-  "The player with the most stars across the whole CWL wins. Ties go to the higher average destruction, then fewer missed attacks.",
+  CWL_RANKING_RULE,
   "Use your attack every war day you're in the lineup. A missed attack can cost your spot next season.",
   "Attack your mirror (the same map number) unless an admin tells you otherwise.",
   "Go for 3 stars. If that's unlikely, make sure of 2 stars.",

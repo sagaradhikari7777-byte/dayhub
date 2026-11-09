@@ -1,11 +1,12 @@
 "use client";
 
-import { Clock, Crown, ScrollText, Shield, Swords } from "lucide-react";
+import { Clock, Crown, Lock, ScrollText, Shield, Swords } from "lucide-react";
 import { useMemo } from "react";
 import {
   ourWars,
   placement,
   playerRecords,
+  seasonFinal,
   standings,
   warWinner,
   type CwlMember,
@@ -78,7 +79,7 @@ export function EventRules({ rules }: { rules: string[] }) {
 }
 
 function stateLine(s: CwlSnapshot, clanTag: string) {
-  if (s.state === "ended") return "Season ended";
+  if (seasonFinal(s)) return "Season ended · final standings";
   const wars = ourWars(s, clanTag);
   const live = wars.findIndex((w) => w?.state === "inWar");
   if (live >= 0) return `Battle day · Round ${live + 1} of 7`;
@@ -418,6 +419,32 @@ function AttackTable({
   );
 }
 
+// When the list stops changing: the end of the war still being played.
+function provisionalNote(s: CwlSnapshot, clanTag: string) {
+  const wars = ourWars(s, clanTag);
+  const live = wars.findIndex((w) => w && w.state !== "warEnded");
+  const unscheduled = wars.some((w) => !w);
+  if (live < 0)
+    return unscheduled
+      ? "Places can change until the last round is played."
+      : "Places can change until every war in the league has ended.";
+  const end = wars[live]!.endTime;
+  const when =
+    end && !unscheduled && live === wars.length - 1
+      ? ` The list becomes final when it ends, ${new Date(end).toLocaleString(
+          undefined,
+          { weekday: "short", hour: "numeric", minute: "2-digit" },
+        )}.`
+      : "";
+  return `Round ${live + 1} is still being played, so places can change.${when}`;
+}
+
+const tieNote = {
+  stars: null,
+  defense: "Placed by defense",
+  speed: "Placed by fastest 3★",
+} as const;
+
 function CwlPlayers({
   snapshot: s,
   clanTag,
@@ -436,56 +463,119 @@ function CwlPlayers({
         </p>
       </section>
     );
+  const final = seasonFinal(s);
+  // Two accounts can have the same name; their tags tell them apart.
+  const duplicated = new Set(
+    rows
+      .filter((r, i) => rows.some((o, j) => j !== i && o.name === r.name))
+      .map((r) => r.name),
+  );
+  const shared = new Set(
+    rows
+      .filter((r, i) => rows.some((o, j) => j !== i && o.rank === r.rank))
+      .map((r) => r.tag),
+  );
   return (
     <section className="stack">
       <h2 className="display">Star race</h2>
+      <div className={`panel standing-state${final ? " final" : ""}`}>
+        {final ? <Lock size={18} /> : <Clock size={18} />}
+        <div className="row-main">
+          <strong>{final ? "Final standings" : "Provisional standings"}</strong>
+          <span className="muted small">
+            {final
+              ? "CWL has ended. This list is locked and won't change."
+              : provisionalNote(s, clanTag)}
+          </span>
+        </div>
+      </div>
+      <div className="panel rank-rules">
+        <strong>How places are decided</strong>
+        <ol>
+          <li>
+            <b>Most stars</b> across the whole CWL.
+          </li>
+          <li>
+            <b>Defense:</b> fewest stars given up on your base (the best attack
+            against it in each war, added up).
+          </li>
+          <li>
+            <b>Fastest 3-star:</b> your quickest 3-star attack.
+          </li>
+        </ol>
+        <span className="muted small">
+          Each rule only matters when players are level on the ones before it.
+          Players level on all three share the place. Everything comes straight
+          from the game.
+        </span>
+      </div>
       <div className="panel leaderboard">
         <div className="lb-row cwl-player lb-head muted small">
           <span>#</span>
           <span>Player</span>
-          <span title="Stars">★</span>
-          <span title="Attacks used / wars in lineup">Hits</span>
+          <span title="Total stars">★</span>
+          <span title="Stars given up on defense">Def</span>
+          <span title="Fastest 3-star attack">Fast</span>
+          <span className="lb-wide" title="Attacks used / wars in lineup">
+            Hits
+          </span>
           <span className="lb-wide" title="Three-star attacks">
             3★
           </span>
           <span className="lb-wide" title="Average destruction">
             Avg %
           </span>
-          <span className="lb-wide" title="Stars given up on defense">
-            Def
-          </span>
         </div>
-        {rows.map((r, i) => (
+        {rows.map((r) => (
           <div
             key={r.tag}
-            className={`lb-row cwl-player${i < 3 ? ` top-${i + 1}` : ""}`}
+            className={`lb-row cwl-player${r.rank <= 3 ? ` top-${r.rank}` : ""}`}
           >
-            <span className="lb-rank">{i + 1}</span>
+            <span className="lb-rank">
+              {shared.has(r.tag) ? "=" : ""}
+              {r.rank}
+            </span>
             <span className="lb-player">
               <TownHall level={r.townHallLevel} />
               <span className="row-main">
                 <strong>{r.name}</strong>
                 <span className={r.missed ? "error-text small" : "muted small"}>
-                  {r.missed
-                    ? `${r.missed} missed`
-                    : `${r.threeStars}× 3★ · ${r.destruction}%`}
+                  {r.attacks}/{r.wars} attacks
+                  {r.missed ? ` · ${r.missed} missed` : ""}
+                  {r.defenses < r.wars
+                    ? ` · base hit in ${r.defenses} of ${r.wars} wars`
+                    : ""}
                 </span>
+                {shared.has(r.tag) ? (
+                  <span className="tie-note">Shared place</span>
+                ) : (
+                  r.decidedBy &&
+                  tieNote[r.decidedBy] && (
+                    <span className="tie-note">{tieNote[r.decidedBy]}</span>
+                  )
+                )}
+                {duplicated.has(r.name) && (
+                  <span className="faint small">{r.tag}</span>
+                )}
               </span>
             </span>
             <span className="gold-text">{r.stars}</span>
+            <span>{r.starsConceded}</span>
             <span>
+              {r.fastestThree === null ? "–" : formatTime(r.fastestThree)}
+            </span>
+            <span className="lb-wide">
               {r.attacks}/{r.wars}
             </span>
             <span className="lb-wide">{r.threeStars}</span>
             <span className="lb-wide">{r.destruction}%</span>
-            <span className="lb-wide">{r.starsConceded}</span>
           </div>
         ))}
       </div>
       <p className="muted small">
-        Most stars wins. Ties go to higher average destruction, then fewer
-        missed attacks. Hits = attacks used out of wars in the lineup. Def =
-        stars given up when defending.
+        ★ = total stars. Def = stars given up on defense (lower is better). Fast
+        = quickest 3-star attack. A note under a name shows which rule placed
+        that player below the one above.
       </p>
     </section>
   );
@@ -507,12 +597,12 @@ function StarRace({
     [s, clanTag],
   );
   if (!top.length) return null;
-  const ended = s.state === "ended";
+  const ended = seasonFinal(s);
   const [first, ...rest] = top;
   return (
     <section className="panel star-race">
       <span className="eyebrow">
-        {ended ? "CWL winner · most stars" : "Leading the star race"}
+        {ended ? "CWL winner · final" : "Leading the star race · provisional"}
       </span>
       <div className="star-leader">
         <span className="crown">
@@ -521,8 +611,10 @@ function StarRace({
         <div className="row-main">
           <strong className="display">{first.name}</strong>
           <span className="muted small">
-            {first.threeStars}× 3★ · {first.destruction}% avg · {first.attacks}/
-            {first.wars} attacks
+            Def {first.starsConceded}
+            {first.fastestThree !== null
+              ? ` · fastest 3★ ${formatTime(first.fastestThree)}`
+              : ""}
           </span>
         </div>
         <span className="star-total display">{first.stars}★</span>
@@ -531,10 +623,15 @@ function StarRace({
         <div className="podium">
           {rest.map((r, i) => (
             <div key={r.tag} className={`podium-spot top-${i + 2}`}>
-              <span className="lb-rank">{i + 2}</span>
+              <span className="lb-rank">{r.rank}</span>
               <span className="row-main">
                 <strong>{r.name}</strong>
-                <span className="muted small">{r.destruction}% avg</span>
+                <span className="muted small">
+                  Def {r.starsConceded}
+                  {r.fastestThree !== null
+                    ? ` · ${formatTime(r.fastestThree)}`
+                    : ""}
+                </span>
               </span>
               <span className="gold-text">{r.stars}★</span>
             </div>

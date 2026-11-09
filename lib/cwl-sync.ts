@@ -2,6 +2,8 @@ import { cocConfigured, CocError, cocGet } from "./coc";
 import {
   normalizeGroup,
   normalizeWar,
+  sameSeason,
+  seasonFinal,
   type CwlSnapshot,
   type CwlWar,
   type RawLeagueGroup,
@@ -18,8 +20,7 @@ const CHECK_IDLE_MS = 20 * 60_000;
 export function cwlCheckDue(hub: Hub, now = Date.now()) {
   if (!cocConfigured()) return false;
   const active = hub.events.some(
-    (e) =>
-      e.kind === "cwl" && e.cwl?.snapshot && e.cwl.snapshot.state !== "ended",
+    (e) => e.kind === "cwl" && e.cwl?.snapshot && !seasonFinal(e.cwl.snapshot),
   );
   const last = hub.cwlCheckedAt ? Date.parse(hub.cwlCheckedAt) : 0;
   return now - last > (active ? CHECK_ACTIVE_MS : CHECK_IDLE_MS);
@@ -47,14 +48,19 @@ export function syncCwl(force = false): Promise<Hub> {
       h.cwlCheckedAt = new Date().toISOString();
       if (!snapshot) return h;
       let event = h.events.find(
-        (e) => e.kind === "cwl" && e.cwl?.season === snapshot.season,
+        (e) =>
+          e.kind === "cwl" &&
+          e.cwl &&
+          sameSeason(e.cwl.season, snapshot.season),
       );
+      // A finished season is frozen: its final standings are never rewritten.
+      if (event?.cwl?.snapshot && seasonFinal(event.cwl.snapshot)) return h;
       if (!event) {
         event = newCwlEvent(snapshot.season);
         h.events.push(event);
       }
       event.cwl = {
-        season: snapshot.season,
+        season: event.cwl?.season ?? snapshot.season,
         snapshot,
         syncedAt: new Date().toISOString(),
       };

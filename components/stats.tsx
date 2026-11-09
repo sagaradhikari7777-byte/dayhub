@@ -10,7 +10,13 @@ import {
   Timer,
   Trophy,
 } from "lucide-react";
-import { placement, playerRecords, standings, starLeader } from "@/lib/cwl";
+import {
+  placement,
+  playerRecords,
+  standings,
+  starLeader,
+  seasonFinal,
+} from "@/lib/cwl";
 import { leagueView } from "@/lib/teams";
 import { useMemo } from "react";
 import { formatDate } from "@/lib/events";
@@ -38,7 +44,7 @@ export function StatsPage({ state }: Actions) {
   const stats = useMemo(() => playerStats(events), [events]);
   const winners = summaries.filter((s) => s.champion);
   const cwlWinners = seasons
-    .filter((e) => e.cwl!.snapshot!.state === "ended")
+    .filter((e) => seasonFinal(e.cwl!.snapshot!))
     .filter((e) => starLeader(e.cwl!.snapshot!, state.hub.clanTag))
     .reverse();
   const played = stats.filter((s) => s.attacks > 0 || s.matchesWon > 0);
@@ -373,7 +379,7 @@ function CwlSeasonRow({
           {[
             row && `${row.wins}–${row.losses} · ${row.stars}★`,
             best && `Top: ${best.name} (${best.stars}★)`,
-            snap.state !== "ended" && "In progress",
+            !seasonFinal(snap) && "In progress",
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -412,7 +418,8 @@ function CwlChampionCard({
         <div className="row-main">
           <strong className="display">{top.name}</strong>
           <span className="muted small">
-            Most stars: {top.stars}★ in {top.attacks} attacks
+            Star race winner: {top.stars}★, gave up {top.starsConceded}★ on
+            defense
             {runnerUp ? ` · ${runnerUp.name} next with ${runnerUp.stars}★` : ""}
           </span>
         </div>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { buildBracket, findMatch, shuffle } from "./bracket";
 import { normalizeTag } from "./coc";
+import { sameSeason } from "./cwl";
 import { newCwlEvent, newEvent, newTeamsEvent } from "./storage";
 import { drawTeams, findTeamFixture, leagueView, type Strength } from "./teams";
 import type { Hub, Player, Tournament } from "./types";
@@ -181,7 +182,9 @@ export function applyAdminAction(
       hub.events.push(newTeamsEvent(action.name));
       return hub;
     case "createCwlEvent":
-      if (hub.events.some((e) => e.cwl?.season === action.season))
+      if (
+        hub.events.some((e) => e.cwl && sameSeason(e.cwl.season, action.season))
+      )
         throw new ActionError("That CWL season already has an event");
       hub.events.push(newCwlEvent(action.season));
       return hub;

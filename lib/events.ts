@@ -1,4 +1,5 @@
 import { buildBracket, champion } from "./bracket";
+import { seasonFinal } from "./cwl";
 import { leagueView } from "./teams";
 import type { Hub, Tournament } from "./types";
 
@@ -6,7 +7,7 @@ export type EventStatus = "open" | "closed" | "live" | "finished";
 
 export function eventStatus(event: Tournament): EventStatus {
   if (event.kind === "cwl" && event.cwl?.snapshot)
-    return event.cwl.snapshot.state === "ended" ? "finished" : "live";
+    return seasonFinal(event.cwl.snapshot) ? "finished" : "live";
   if (event.kind === "teams" && event.teams?.draw)
     return leagueView(event)?.champion !== null ? "finished" : "live";
   if (event.bracket) {
