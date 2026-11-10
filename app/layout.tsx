@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Lilita_One } from "next/font/google";
+import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 
-const display = Lilita_One({
-  weight: "400",
+const display = Outfit({
+  weight: ["600", "700"],
   subsets: ["latin"],
-  variable: "--font-lilita",
+  variable: "--font-outfit",
 });
 const body = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -26,7 +26,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#090a12",
+  themeColor: "#0a0f0d",
 };
 
 export default function RootLayout({

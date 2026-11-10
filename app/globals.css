@@ -1,36 +1,38 @@
 /* Voldemort COCEvents.
-   Dark theme with gold accents. Surfaces are flat and solid; gold is kept for
-   actions, key numbers and the active state so it stays meaningful. */
+   Deep emerald and silver on a green-black ground. Emerald marks actions and
+   the active state; amber is only for stars and trophies. */
 :root {
-  --bg: #090a12;
-  --bg-2: #0e1020;
-  --surface: #12131f;
-  --surface-2: #1a1c2a;
-  --surface-3: #252738;
-  --surface-solid: #141627;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-strong: rgba(255, 255, 255, 0.13);
-  --text: #f4f2ec;
-  --muted: #a4a3b8;
-  --faint: #6e6d85;
-  --gold: #ffcb45;
-  --gold-2: #f59e0b;
-  --gold-ink: #2a1700;
-  --gold-soft: rgba(255, 203, 69, 0.1);
-  --purple: #8b5cf6;
-  --purple-soft: rgba(139, 92, 246, 0.14);
-  --green: #3ddc97;
-  --green-soft: rgba(61, 220, 151, 0.1);
-  --blue: #6ea8ff;
-  --blue-soft: rgba(110, 168, 255, 0.12);
-  --red: #ff7a7a;
-  --red-soft: rgba(255, 122, 122, 0.1);
-  --pink: #f472b6;
-  --radius: 16px;
-  --radius-sm: 12px;
+  --bg: #0a0f0d;
+  --bg-2: #0e1512;
+  --surface: #131b18;
+  --surface-2: #1a2420;
+  --surface-3: #26342e;
+  --surface-solid: #151e1a;
+  --line: rgba(214, 255, 236, 0.07);
+  --line-strong: rgba(214, 255, 236, 0.15);
+  --text: #eaf2ee;
+  --muted: #9fb1a9;
+  --faint: #687a72;
+  --accent: #3ad6a0;
+  --accent-hover: #62e3b6;
+  --accent-ink: #04170f;
+  --accent-soft: rgba(58, 214, 160, 0.12);
+  --star: #f2c14e;
+  --star-soft: rgba(242, 193, 78, 0.12);
+  --silver: #c7d2cd;
+  --green: #3ad6a0;
+  --green-soft: rgba(58, 214, 160, 0.12);
+  --blue: #6cc4ff;
+  --blue-soft: rgba(108, 196, 255, 0.12);
+  --red: #ff8585;
+  --red-soft: rgba(255, 133, 133, 0.1);
+  --pink: #f08cc0;
+  --radius: 14px;
+  --radius-sm: 10px;
   --pad: 16px;
   --font-display:
-    var(--font-lilita), "Arial Rounded MT Bold", system-ui, sans-serif;
+    var(--font-outfit), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   --font-body:
     var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
@@ -87,7 +89,7 @@ small {
   font-size: inherit;
 }
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .skip-link {
@@ -103,28 +105,26 @@ small {
   border-radius: 8px;
 }
 
-/* Type. The display face is for the brand, page titles, event and team
-   names, and big numbers. Section headings stay in the body face. */
+/* Type. Outfit for titles and numbers, Inter for everything else. */
 .display {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 h1.display {
-  font-size: clamp(1.6rem, 5.4vw, 2.1rem);
-  line-height: 1.15;
+  font-size: clamp(1.7rem, 6.4vw, 2.3rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 h2.display {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0;
+  font-weight: 600;
+  font-size: 1.15rem;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 h2.display svg {
-  color: var(--muted);
+  color: var(--accent);
   width: 18px;
   height: 18px;
 }
@@ -134,7 +134,7 @@ h2.display svg {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--accent);
 }
 .muted {
   color: var(--muted);
@@ -153,7 +153,7 @@ h2.display svg {
   color: var(--green);
 }
 .gold-text {
-  color: var(--gold);
+  color: var(--text);
   font-weight: 700;
 }
 .center-text {
@@ -163,13 +163,19 @@ h2.display svg {
   align-self: center;
 }
 
-/* A single soft wash behind the page */
+/* A faint emerald wash at the top of the page */
 .backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--bg-2), var(--bg) 28rem);
+  background:
+    radial-gradient(
+      70rem 26rem at 50% -8rem,
+      rgba(58, 214, 160, 0.09),
+      transparent 70%
+    ),
+    var(--bg);
 }
 
 /* Layout */
@@ -260,7 +266,7 @@ h2.display svg {
   height: 18px;
   border-radius: 50%;
   border: 2px solid var(--line-strong);
-  border-top-color: var(--gold);
+  border-top-color: var(--accent);
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin {
@@ -301,13 +307,14 @@ h2.display svg {
 }
 .brand-name {
   font-family: var(--font-display);
-  font-size: 1.2rem;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   color: var(--text);
 }
 .brand-accent {
-  color: var(--gold);
+  color: var(--accent);
 }
 @media (max-width: 360px) {
   .brand-name {
@@ -336,8 +343,11 @@ h2.display svg {
   background: var(--surface);
 }
 .tab.active {
-  color: var(--gold);
-  background: var(--gold-soft);
+  color: var(--text);
+  background: var(--surface-2);
+}
+.tab.active svg {
+  color: var(--accent);
 }
 
 /* Mobile tab bar, docked so nothing shows through it */
@@ -354,19 +364,30 @@ h2.display svg {
   border-top: 1px solid var(--line);
 }
 .bottom-nav a {
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 7px 0 5px;
-  border-radius: 12px;
+  padding: 8px 0 5px;
   color: var(--faint);
   font-size: 0.68rem;
   font-weight: 600;
 }
 .bottom-nav a.active {
-  color: var(--gold);
+  color: var(--accent);
+}
+.bottom-nav a.active::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 28px;
+  height: 3px;
+  margin-left: -14px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
 }
 .desktop-only {
   display: none;
@@ -392,7 +413,7 @@ h2.display svg {
 .card {
   position: relative;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   padding: var(--pad);
   min-width: 0;
@@ -423,8 +444,8 @@ p.notice.error {
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  padding: 0 16px;
-  border-radius: var(--radius-sm);
+  padding: 0 18px;
+  border-radius: 999px;
   border: 1px solid var(--line-strong);
   background: var(--surface-2);
   font-weight: 600;
@@ -441,13 +462,13 @@ p.notice.error {
   cursor: default;
 }
 .btn.primary {
-  color: var(--gold-ink);
+  color: var(--accent-ink);
   border-color: transparent;
-  background: var(--gold);
+  background: var(--accent);
   font-weight: 700;
 }
 .btn.primary:hover:not(:disabled) {
-  background: #ffd668;
+  background: var(--accent-hover);
 }
 .btn.ghost {
   background: transparent;
@@ -464,7 +485,6 @@ p.notice.error {
   min-height: 36px;
   padding: 0 12px;
   font-size: 0.85rem;
-  border-radius: 10px;
 }
 .btn.lg {
   min-height: 48px;
@@ -477,7 +497,7 @@ p.notice.error {
   width: 36px;
   height: 36px;
   flex: none;
-  border-radius: 10px;
+  border-radius: 50%;
   border: 0;
   background: var(--surface-2);
   color: var(--muted);
@@ -495,7 +515,7 @@ p.notice.error {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--gold);
+  color: var(--accent);
   font-weight: 600;
   cursor: pointer;
 }
@@ -553,8 +573,8 @@ select.input {
 }
 .input:focus {
   outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .input::placeholder {
   color: var(--faint);
@@ -581,8 +601,8 @@ input[type="month"].input {
   color: var(--faint);
 }
 .search:focus-within {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .search input {
   flex: 1;
@@ -642,24 +662,22 @@ input[type="month"].input {
   flex-wrap: wrap;
   gap: 2px;
   padding: 3px;
-  border-radius: var(--radius-sm);
+  /* a pill on one line, a rounded box when the options wrap */
+  border-radius: 21px;
   background: var(--surface);
-  border: 1px solid var(--line);
   width: fit-content;
   max-width: 100%;
 }
-.segmented.wide {
-  width: 100%;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+.panel .segmented,
+.sheet .segmented {
+  background: var(--bg);
 }
 .segmented button,
 .segmented a {
   border: 0;
   background: none;
-  padding: 8px 12px;
-  border-radius: 9px;
+  padding: 7px 14px;
+  border-radius: 999px;
   color: var(--muted);
   cursor: pointer;
   font-size: 0.88rem;
@@ -673,23 +691,40 @@ input[type="month"].input {
 .segmented a:hover {
   color: var(--text);
 }
+.segmented .active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.segmented button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* Page-level tabs (an event's sections) are an underline bar */
+.segmented.wide {
+  width: 100%;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  border-bottom: 1px solid var(--line-strong);
+}
 .segmented.wide a {
-  padding-left: 4px;
-  padding-right: 4px;
+  padding: 10px 4px 12px;
+  border-radius: 0;
   white-space: nowrap;
+}
+.segmented.wide .active {
+  background: none;
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 @media (max-width: 420px) {
   .segmented.wide a {
     font-size: 0.8rem;
   }
-}
-.segmented .active {
-  background: var(--surface-3);
-  color: var(--text);
-}
-.segmented button:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 .toggle {
   position: relative;
@@ -725,49 +760,40 @@ input[type="month"].input {
   transition: transform 0.2s;
 }
 .toggle input:checked + .toggle-track {
-  background: var(--green);
+  background: var(--accent);
 }
 .toggle input:checked + .toggle-track::after {
   transform: translateX(18px);
 }
 .toggle input:focus-visible + .toggle-track {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .toggle input:disabled + .toggle-track {
   opacity: 0.4;
 }
 
-/* Chips and pills */
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.chip.ok {
-  color: var(--green);
-  background: var(--green-soft);
-}
-.chip.gold {
-  color: var(--gold);
-  background: var(--gold-soft);
-}
+/* Tags */
+.chip,
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 99px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: var(--surface-2);
-  color: var(--muted);
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
+  background: var(--surface-3);
+  color: var(--muted);
+}
+.chip {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
 }
 .pill .dot {
   width: 6px;
@@ -775,6 +801,7 @@ input[type="month"].input {
   border-radius: 50%;
   background: currentColor;
 }
+.chip.ok,
 .pill.open,
 .pill.win {
   color: var(--green);
@@ -784,9 +811,10 @@ input[type="month"].input {
   color: var(--blue);
   background: var(--blue-soft);
 }
+.chip.gold,
 .pill.finished {
-  color: var(--gold);
-  background: var(--gold-soft);
+  color: var(--star);
+  background: var(--star-soft);
 }
 .pill.loss {
   color: var(--red);
@@ -794,99 +822,110 @@ input[type="month"].input {
 }
 .pill.hard {
   color: var(--pink);
-  background: rgba(244, 114, 182, 0.12);
+  background: rgba(240, 140, 192, 0.12);
 }
 
-/* Home hero */
+/* Home hero: open, no box */
 .hero {
   position: relative;
-  overflow: hidden;
-  border-radius: 20px;
-  padding: 20px var(--pad) var(--pad);
-  border: 1px solid var(--line);
-  background:
-    linear-gradient(160deg, var(--purple-soft), transparent 60%), var(--surface);
+  padding: 12px 0 4px;
 }
 .hero-glow {
   display: none;
 }
 .hero-body {
-  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  text-align: center;
+  gap: 12px;
 }
 .hero-badge {
   flex: none;
-  width: 76px;
-  height: 76px;
+  width: 104px;
+  height: 104px;
   object-fit: contain;
 }
 .hero-badge.placeholder {
   display: grid;
   place-items: center;
-  border-radius: 20px;
+  border-radius: 24px;
   background: var(--surface-2);
-  color: var(--gold);
+  color: var(--accent);
 }
 .hero-text {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
 }
 .hero-text h1 {
   overflow-wrap: anywhere;
+  font-size: clamp(2rem, 9vw, 3rem);
 }
 .hero-stats {
-  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-top: 18px;
+  margin-top: 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 .hero-stat {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.22);
+  align-items: center;
+  padding: 14px 8px;
   color: var(--muted);
+}
+.hero-stat + .hero-stat {
+  border-left: 1px solid var(--line);
 }
 .hero-stat svg {
   display: none;
 }
 .hero-stat strong {
   font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 1.5rem;
+  font-weight: 700;
+  font-size: 1.6rem;
   line-height: 1.15;
   color: var(--text);
 }
 .hero-stat span {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .hero-actions {
-  position: relative;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 .hero-note {
-  position: relative;
   margin-top: 10px;
   text-align: center;
 }
 @media (min-width: 640px) {
   .hero {
-    padding: 32px;
+    padding: 28px 0 8px;
+  }
+  .hero-body {
+    flex-direction: row;
+    text-align: left;
+    gap: 24px;
+  }
+  .hero-text {
+    align-items: flex-start;
   }
   .hero-badge {
-    width: 104px;
-    height: 104px;
+    width: 132px;
+    height: 132px;
+  }
+  .hero-stats {
+    max-width: 480px;
+    margin-top: 24px;
   }
   .hero-actions {
     grid-template-columns: auto auto;
@@ -895,16 +934,13 @@ input[type="month"].input {
   .hero-note {
     text-align: left;
   }
-  .hero-stats {
-    max-width: 480px;
-  }
 }
 
-/* Event cards */
+/* Event cards: a stripe on the left shows the status at a glance */
 .event-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 @media (min-width: 680px) {
   .event-grid {
@@ -922,15 +958,31 @@ input[type="month"].input {
   flex-direction: column;
   gap: 8px;
   padding: var(--pad);
+  padding-left: calc(var(--pad) + 4px);
   border-radius: var(--radius);
-  border: 1px solid var(--line);
   background: var(--surface);
-  transition:
-    border-color 0.15s,
-    background 0.15s;
+  overflow: hidden;
+  transition: background 0.15s;
+}
+.event-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--surface-3);
+}
+.event-card.open::before {
+  background: var(--accent);
+}
+.event-card.live::before {
+  background: var(--blue);
+}
+.event-card.finished::before {
+  background: var(--star);
 }
 .event-card:hover {
-  border-color: var(--line-strong);
   background: var(--surface-2);
 }
 .event-card-top,
@@ -941,7 +993,8 @@ input[type="month"].input {
   gap: 8px;
 }
 .event-card h3 {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
+  line-height: 1.2;
   margin-top: 2px;
 }
 .event-desc {
@@ -969,13 +1022,13 @@ input[type="month"].input {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--gold);
+  color: var(--star);
   font-weight: 600;
 }
 .event-cta {
   margin-top: auto;
   padding-top: 4px;
-  color: var(--gold);
+  color: var(--accent);
   font-weight: 600;
   font-size: 0.88rem;
 }
@@ -989,25 +1042,28 @@ input[type="month"].input {
   display: block;
   height: 100%;
   border-radius: 99px;
-  background: var(--gold);
+  background: var(--accent);
   transition: width 0.4s;
 }
 
-/* Event page header */
+/* Event page header: open, no box */
 .event-hero {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 0;
+  background: none;
+  border-radius: 0;
 }
 .event-hero h1 {
-  font-size: clamp(1.45rem, 5vw, 1.9rem);
+  font-size: clamp(1.7rem, 7vw, 2.4rem);
 }
 .event-hero > p {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
 }
 .event-hero .btn {
   align-self: flex-start;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 /* Rules */
@@ -1030,16 +1086,12 @@ input[type="month"].input {
 }
 .rule-num {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  margin-top: 1px;
-  border-radius: 50%;
-  font-size: 0.75rem;
+  width: 22px;
+  font-family: var(--font-display);
   font-weight: 700;
-  color: var(--muted);
-  background: var(--surface-3);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--accent);
 }
 
 /* Register */
@@ -1050,7 +1102,7 @@ input[type="month"].input {
   flex-wrap: wrap;
   padding: 12px var(--pad);
   border-color: transparent;
-  background: var(--gold-soft);
+  background: var(--accent-soft);
 }
 .focus-banner .link {
   margin-left: auto;
@@ -1065,7 +1117,7 @@ input[type="month"].input {
 }
 .clan-head h2.display {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 1.25rem;
 }
 .clan-count {
@@ -1076,10 +1128,10 @@ input[type="month"].input {
 }
 .clan-count strong {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 1.5rem;
   line-height: 1;
-  color: var(--gold);
+  color: var(--accent);
 }
 .clan-count strong span {
   font-size: 0.95rem;
@@ -1103,7 +1155,7 @@ input[type="month"].input {
 .other-ways summary {
   cursor: pointer;
   font-weight: 600;
-  color: var(--gold);
+  color: var(--accent);
   list-style: none;
 }
 .other-ways summary::-webkit-details-marker {
@@ -1160,26 +1212,28 @@ input[type="month"].input {
 .row-main > strong {
   font-weight: 600;
 }
-/* Town Hall badge: neutral, so a long list isn't a column of gold */
+/* Town Hall tag */
 .th {
   flex: none;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
+  gap: 1px;
+  min-width: 46px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 6px;
   font-weight: 700;
-  font-size: 0.95rem;
-  line-height: 1.05;
+  font-size: 0.82rem;
+  line-height: 1;
   color: var(--text);
   background: var(--surface-3);
 }
 .th small {
-  font-size: 0.52rem;
+  font-size: 0.64rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: var(--muted);
 }
 .plain {
@@ -1215,8 +1269,8 @@ input[type="month"].input {
   background: var(--surface-2);
 }
 .choice.selected {
-  border-color: var(--gold);
-  background: var(--gold-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .choice:disabled {
   cursor: default;
@@ -1230,11 +1284,11 @@ input[type="month"].input {
   height: 22px;
   border-radius: 50%;
   border: 2px solid var(--line-strong);
-  color: var(--gold-ink);
+  color: var(--accent-ink);
 }
 .choice.selected .choice-radio {
-  border-color: var(--gold);
-  background: var(--gold);
+  border-color: var(--accent);
+  background: var(--accent);
 }
 .choice:disabled .choice-radio {
   border-color: var(--green);
@@ -1294,7 +1348,7 @@ input[type="month"].input {
   }
 }
 .team-card.champion-team {
-  border-color: rgba(255, 203, 69, 0.45);
+  border-color: rgba(242, 193, 78, 0.4);
 }
 .team-head {
   display: flex;
@@ -1346,9 +1400,9 @@ input[type="month"].input {
 }
 .team-strength strong {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 1.2rem;
-  color: var(--gold);
+  color: var(--text);
 }
 .team-match {
   display: flex;
@@ -1392,8 +1446,8 @@ input[type="month"].input {
   cursor: pointer;
 }
 .event-tabs button.active {
-  border-color: var(--gold);
-  background: var(--gold-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .danger-zone {
   border-color: rgba(255, 122, 122, 0.22);
@@ -1427,7 +1481,7 @@ input[type="month"].input {
 .stat strong,
 .stat-tile strong {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 1.5rem;
   line-height: 1.15;
 }
@@ -1452,7 +1506,7 @@ input[type="month"].input {
   margin-top: 8px;
 }
 .th-chart .recharts-bar-rectangle path {
-  fill: var(--gold);
+  fill: var(--accent);
 }
 .th-chart .recharts-cartesian-grid line {
   stroke: var(--line);
@@ -1493,7 +1547,7 @@ input[type="month"].input {
 .clan-split .bar span {
   display: block;
   height: 100%;
-  background: var(--gold);
+  background: var(--accent);
   border-radius: 99px;
 }
 .clan-split strong {
@@ -1504,22 +1558,22 @@ input[type="month"].input {
 .champion,
 .champion-card,
 .star-race {
-  border-color: rgba(255, 203, 69, 0.22);
+  border-color: rgba(242, 193, 78, 0.2);
   background:
-    linear-gradient(180deg, rgba(255, 203, 69, 0.07), transparent 70%),
+    linear-gradient(180deg, rgba(242, 193, 78, 0.06), transparent 70%),
     var(--surface);
 }
 .champion {
   display: flex;
   align-items: center;
   gap: 14px;
-  color: var(--gold);
+  color: var(--star);
 }
 .champion h2 {
   margin: 0;
   color: var(--text);
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 1.4rem;
 }
 .champion-card {
@@ -1534,7 +1588,7 @@ input[type="month"].input {
   transition: border-color 0.15s;
 }
 .champion-card:hover {
-  border-color: rgba(255, 203, 69, 0.45);
+  border-color: rgba(242, 193, 78, 0.4);
 }
 .champion-card-top {
   display: flex;
@@ -1566,8 +1620,8 @@ input[type="month"].input {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  color: var(--gold);
-  background: var(--gold-soft);
+  color: var(--star);
+  background: var(--star-soft);
 }
 .star-race {
   display: flex;
@@ -1590,7 +1644,7 @@ input[type="month"].input {
   flex: none;
   font-size: 1.9rem;
   line-height: 1;
-  color: var(--gold);
+  color: var(--star);
 }
 .podium {
   display: grid;
@@ -1767,8 +1821,8 @@ button.match:hover {
   height: 30px;
   margin-bottom: 6px;
   border-radius: 9px;
-  color: var(--gold);
-  background: var(--gold-soft);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .highlight strong {
   font-size: 1.4rem;
@@ -1813,23 +1867,34 @@ button.match:hover {
   min-width: 0;
 }
 .lb-player .th {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  font-size: 0.85rem;
+  min-width: 44px;
 }
 .lb-rank {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  border-radius: 50%;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--muted);
 }
 .top-1 .lb-rank {
-  color: var(--gold);
+  background: var(--star);
+  color: #1d1500;
 }
 .top-2 .lb-rank {
-  color: #d9dbe7;
+  background: var(--silver);
+  color: #131a17;
 }
 .top-3 .lb-rank {
-  color: #e0a173;
+  background: #c98a5a;
+  color: #1c0f05;
+}
+.podium-spot .lb-rank {
+  flex: none;
+  margin: 0;
 }
 .lb-wide {
   display: none;
@@ -1861,6 +1926,10 @@ button.match:hover {
 .lb-row.cwl-player.lb-head > span {
   padding-top: 0;
 }
+.lb-row.cwl-player > .lb-rank {
+  padding-top: 0;
+  margin-top: 4px;
+}
 .lb-row.cwl-player .row-main > strong {
   white-space: nowrap;
   overflow: hidden;
@@ -1875,6 +1944,10 @@ button.match:hover {
   }
   .lb-row.cwl-player > span:not(.lb-player) {
     padding-top: 1px;
+  }
+  .lb-row.cwl-player > .lb-rank {
+    padding-top: 0;
+    margin-top: 0;
   }
   .podium {
     grid-template-columns: 1fr;
@@ -1896,7 +1969,7 @@ button.match:hover {
   padding-left: 12px;
   padding-right: 12px;
   border-radius: 10px;
-  background: var(--gold-soft);
+  background: var(--accent-soft);
   border-top-color: transparent;
 }
 .lb-row.ours + .lb-row {
@@ -1915,7 +1988,7 @@ button.match:hover {
   border-top: 1px solid var(--line);
 }
 .event-row:hover strong {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 /* CWL */
@@ -2043,7 +2116,7 @@ button.match:hover {
 .war-stars {
   font-size: 1.5rem;
   line-height: 1.15;
-  color: var(--gold);
+  color: var(--text);
 }
 .vs {
   color: var(--faint);
@@ -2094,7 +2167,7 @@ button.match:hover {
   flex: none;
 }
 .stars-text {
-  color: var(--gold);
+  color: var(--star);
   letter-spacing: 1px;
 }
 .stars-text .dim {
@@ -2191,7 +2264,7 @@ button.match:hover {
 }
 .sheet-head h2.display {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 1.35rem;
 }
 .series {
@@ -2219,7 +2292,7 @@ button.match:hover {
 }
 .series strong {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 2rem;
 }
 .series .win {
@@ -2275,7 +2348,7 @@ button.match:hover {
   fill: currentColor;
 }
 .stars svg.on {
-  color: var(--gold);
+  color: var(--star);
 }
 
 /* Result editor */
@@ -2325,9 +2398,9 @@ button.match:hover {
   font-weight: 600;
 }
 .star-pick button.active {
-  color: var(--gold-ink);
+  color: var(--accent-ink);
   border-color: transparent;
-  background: var(--gold);
+  background: var(--accent);
   font-weight: 700;
 }
 .input.pct {
@@ -2379,6 +2452,16 @@ button.match:hover {
 
 /* Small screens: let supporting lines wrap instead of cutting off */
 @media (max-width: 639px) {
+  .lb-row:not(.team-row):not(.cwl-row):not(.cwl-player) {
+    grid-template-columns: 24px minmax(0, 1fr) 20px 36px 26px;
+    gap: 6px;
+  }
+  .lb-row:not(.cwl-player) .lb-player {
+    gap: 8px;
+  }
+  .lb-row:not(.cwl-player) .lb-player .th {
+    min-width: 0;
+  }
   .lb-player .row-main > span,
   .event-row .row-main > span {
     white-space: normal;
