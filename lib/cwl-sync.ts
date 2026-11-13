@@ -1,9 +1,13 @@
 import { cocConfigured, CocError, cocGet } from "./coc";
 import {
+  lastWarEnd,
   normalizeGroup,
   normalizeWar,
+  openWarTags,
   sameSeason,
+  scheduled,
   seasonFinal,
+  withWars,
   type CwlSnapshot,
   type CwlWar,
   type RawLeagueGroup,
@@ -17,11 +21,25 @@ import type { Hub } from "./types";
 const CHECK_ACTIVE_MS = 3 * 60_000;
 const CHECK_IDLE_MS = 20 * 60_000;
 
+// A season that can't be completed (the game no longer has its wars) stops
+// counting as active a few days after its last war.
+const STALE_MS = 3 * 24 * 60 * 60_000;
+
+// The newest saved season that isn't final yet.
+function openSeason(hub: Hub): CwlSnapshot | null {
+  return (
+    hub.events
+      .flatMap((e) => (e.kind === "cwl" && e.cwl?.snapshot ? [e.cwl] : []))
+      .filter((c) => !seasonFinal(c.snapshot!))
+      .sort((a, b) => b.season.localeCompare(a.season))[0]?.snapshot ?? null
+  );
+}
+
 export function cwlCheckDue(hub: Hub, now = Date.now()) {
   if (!cocConfigured()) return false;
-  const active = hub.events.some(
-    (e) => e.kind === "cwl" && e.cwl?.snapshot && !seasonFinal(e.cwl.snapshot),
-  );
+  const open = openSeason(hub);
+  const end = open ? lastWarEnd(open) : null;
+  const active = Boolean(open) && (end === null || now - end < STALE_MS);
   const last = hub.cwlCheckedAt ? Date.parse(hub.cwlCheckedAt) : 0;
   return now - last > (active ? CHECK_ACTIVE_MS : CHECK_IDLE_MS);
 }
@@ -87,9 +105,17 @@ async function fetchSnapshot(hub: Hub): Promise<CwlSnapshot | null> {
       `/clans/${encodeURIComponent(clanTag)}/currentwar/leaguegroup`,
     );
   } catch (error) {
-    // Not in CWL right now.
-    if (error instanceof CocError && error.status === 404) return null;
-    throw error;
+    if (!(error instanceof CocError && error.status === 404)) throw error;
+    // No league group: either the clan isn't in CWL, or the season is over.
+    // The game drops the group soon after the last round, sometimes before
+    // that round's results were loaded here, but the wars themselves stay
+    // available by tag. Finish the saved season from those.
+    const open = openSeason(hub);
+    if (!open) return null;
+    return withWars(
+      open,
+      await fetchWars(openWarTags(open), new Map(), clanTag),
+    );
   }
 
   // Wars that have ended never change, so reuse the saved copies.
@@ -101,8 +127,16 @@ async function fetchSnapshot(hub: Hub): Promise<CwlSnapshot | null> {
 
   const tags = group.rounds
     .flatMap((r) => r.warTags)
-    .filter((t) => t && t !== "#0" && !saved.has(t));
-  const wars = new Map(saved);
+    .filter((t) => scheduled(t) && !saved.has(t));
+  return normalizeGroup(group, await fetchWars(tags, new Map(saved), clanTag));
+}
+
+// Loads wars by tag into `wars`. A war the API no longer has is left out.
+async function fetchWars(
+  tags: string[],
+  wars: Map<string, CwlWar>,
+  clanTag: string,
+) {
   // A few at a time to stay well inside the API's rate limit.
   for (let i = 0; i < tags.length; i += 4)
     await Promise.all(
@@ -117,5 +151,5 @@ async function fetchSnapshot(hub: Hub): Promise<CwlSnapshot | null> {
         }
       }),
     );
-  return normalizeGroup(group, wars);
+  return wars;
 }

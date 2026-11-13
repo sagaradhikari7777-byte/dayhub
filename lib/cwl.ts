@@ -54,6 +54,9 @@ export type CwlSnapshot = {
   clans: CwlClan[];
   // rounds[r] lists that round's wars; an empty list means not scheduled yet.
   rounds: CwlWar[][];
+  // Each round's war tags, kept so the wars can still be loaded after the
+  // game stops serving the league group. Missing on older snapshots.
+  tags?: string[][];
 };
 
 export type CwlInfo = {
@@ -205,7 +208,52 @@ export function normalizeGroup(
         return war ? [war] : [];
       }),
     ),
+    tags: raw.rounds.map((r) => r.warTags.filter(scheduled)),
   };
+}
+
+// "#0" stands for a war that hasn't been scheduled yet.
+export const scheduled = (tag: string) => Boolean(tag) && tag !== "#0";
+
+// The war tags of a saved season, round by round.
+export function warTags(s: CwlSnapshot): string[][] {
+  return s.tags ?? s.rounds.map((r) => r.map((w) => w.warTag));
+}
+
+// Wars of a saved season that may still change.
+export function openWarTags(s: CwlSnapshot): string[] {
+  const ended = new Set(
+    s.rounds
+      .flat()
+      .filter((w) => w.state === "warEnded")
+      .map((w) => w.warTag),
+  );
+  return warTags(s)
+    .flat()
+    .filter((t) => !ended.has(t));
+}
+
+// A saved season with freshly loaded wars put in. Used once the league group
+// itself is gone from the API: the season is over when every war has ended.
+export function withWars(s: CwlSnapshot, fresh: Map<string, CwlWar>) {
+  const saved = new Map(s.rounds.flat().map((w) => [w.warTag, w]));
+  const next: CwlSnapshot = {
+    ...s,
+    rounds: warTags(s).map((round) =>
+      round.flatMap((t) => fresh.get(t) ?? saved.get(t) ?? []),
+    ),
+  };
+  if (seasonFinal(next)) next.state = "ended";
+  return next;
+}
+
+// When the season's last known war ends (or ended).
+export function lastWarEnd(s: CwlSnapshot) {
+  const ends = s.rounds
+    .flat()
+    .map((w) => (w.endTime ? Date.parse(w.endTime) : NaN))
+    .filter((t) => !Number.isNaN(t));
+  return ends.length ? Math.max(...ends) : null;
 }
 
 export function seasonLabel(season: string) {

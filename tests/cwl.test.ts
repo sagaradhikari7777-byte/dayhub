@@ -4,11 +4,13 @@ import {
   apiTime,
   normalizeGroup,
   normalizeWar,
+  openWarTags,
   ourWars,
   placement,
   playerRecords,
   sameSeason,
   seasonFinal,
+  withWars,
   type CwlSnapshot,
   type CwlWar,
   standings,
@@ -285,6 +287,53 @@ test("a season is final once every war has ended", () => {
   assert.equal(seasonFinal(s), false);
   assert.equal(seasonFinal({ ...s, state: "ended" }), true);
   assert.equal(seasonFinal(snapshot()), false);
+});
+
+test("a season is finished from its saved war tags once the group is gone", () => {
+  const done = tieSnapshot();
+  const last = done.rounds.at(-1)![0];
+  // Saved while the last war was still being fought.
+  const stuck: CwlSnapshot = {
+    ...done,
+    state: "inWar",
+    rounds: [
+      ...done.rounds.slice(0, -1),
+      [{ ...last, state: "inWar", clan: { ...last.clan, stars: 1 } }],
+    ],
+  };
+  assert.equal(seasonFinal(stuck), false);
+  assert.deepEqual(openWarTags(stuck), [last.warTag]);
+
+  // The war can't be loaded: nothing changes and it stays provisional.
+  const same = withWars(stuck, new Map());
+  assert.equal(seasonFinal(same), false);
+  assert.equal(same.rounds.at(-1)![0].clan.stars, 1);
+
+  // Loaded by tag: the final result goes in and the season closes.
+  const closed = withWars(stuck, new Map([[last.warTag, last]]));
+  assert.equal(closed.state, "ended");
+  assert.equal(seasonFinal(closed), true);
+  assert.equal(closed.rounds.at(-1)![0].clan.stars, last.clan.stars);
+  assert.deepEqual(openWarTags(closed), []);
+});
+
+test("a round that was never loaded is still found by its tag", () => {
+  const done = tieSnapshot();
+  const last = done.rounds.at(-1)![0];
+  const tags = done.rounds.map((r) => r.map((w) => w.warTag));
+  const stuck: CwlSnapshot = {
+    ...done,
+    state: "inWar",
+    rounds: [...done.rounds.slice(0, -1), []],
+    tags,
+  };
+  assert.deepEqual(openWarTags(stuck), [last.warTag]);
+  const closed = withWars(stuck, new Map([[last.warTag, last]]));
+  assert.equal(seasonFinal(closed), true);
+  // Without the tag there is nothing to load, so it can't be closed.
+  const { tags: _, ...untagged } = stuck;
+  assert.deepEqual(openWarTags(untagged), []);
+  assert.equal(seasonFinal(withWars(untagged, new Map())), false);
 });
 
 test("a season with or without a day is the same season", () => {
